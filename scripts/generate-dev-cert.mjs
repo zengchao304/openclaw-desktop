@@ -24,7 +24,7 @@ x509_extensions = v3_req
 
 [ dn ]
 CN = OpenClaw Desktop (Dev)
-O = OpenClaw Contributors
+O = wurongzhao@AgentKernel
 
 [ v3_req ]
 keyUsage = critical, digitalSignature

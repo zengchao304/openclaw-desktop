@@ -172,6 +172,17 @@ app.whenReady().then(() => {
   let shellConfig = readShellConfig()
   void readOpenClawConfig() // 预加载，供后续 Gateway 等使用
   migrateAuthProfilesIfNeeded() // 迁移 credentials/ 到 agents/main/agent（原生路径）
+  if (!openclawConfigExists()) {
+    // 首次运行进入向导时，固定默认宽度为 980（主界面后续不在这里强制改宽）
+    shellConfig = {
+      ...shellConfig,
+      windowBounds: {
+        ...shellConfig.windowBounds,
+        width: 980,
+      },
+    }
+    writeShellConfig(shellConfig)
+  }
 
   // 2.5 开机自启：检测系统登录项状态并同步到 ShellConfig，再应用到系统
   const sysOpenAtLogin = getLoginItemOpenAtLogin()
@@ -206,8 +217,7 @@ app.whenReady().then(() => {
     resizeForMainInterface: () => {
       const win = windowManager.getMainWindow()
       if (win && !win.isDestroyed() && !win.isMaximized()) {
-        // 主界面（Control UI）宽度 1280，向导保持 980
-        win.setSize(1280, 920)
+        // 主界面尺寸保持当前值，不在向导完成后强制改宽
         win.center()
       }
     },

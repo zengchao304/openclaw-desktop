@@ -16,7 +16,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
 const RESOURCES_DIR = join(PROJECT_ROOT, 'resources');
 const INSTALLER_DIR = join(RESOURCES_DIR, 'installer');
-const APPLE_TOUCH_ICON = join(PROJECT_ROOT, 'apple-touch-icon.png');
+const APPLE_TOUCH_ICON_IN_RESOURCES = join(RESOURCES_DIR, 'apple-touch-icon.png');
+const APPLE_TOUCH_ICON_IN_ROOT = join(PROJECT_ROOT, 'apple-touch-icon.png');
+
+function resolveAppleTouchIconPath() {
+  if (existsSync(APPLE_TOUCH_ICON_IN_RESOURCES)) return APPLE_TOUCH_ICON_IN_RESOURCES;
+  if (existsSync(APPLE_TOUCH_ICON_IN_ROOT)) return APPLE_TOUCH_ICON_IN_ROOT;
+  return null;
+}
 
 const BRAND = '#FF4500';
 const WHITE = '#FFFFFF';
@@ -57,8 +64,9 @@ function sidebarSvg() {
 async function generateIconIco() {
   const sizes = [16, 32, 48, 256];
   const outPath = join(RESOURCES_DIR, 'icon.ico');
+  const appleTouchIconPath = resolveAppleTouchIconPath();
   let pngBuffers;
-  if (existsSync(APPLE_TOUCH_ICON)) {
+  if (appleTouchIconPath) {
     if (process.env.REGENERATE_ICON === '0') {
       if (existsSync(outPath)) {
         console.log('  ✓ icon.ico (keep existing file)');
@@ -67,9 +75,9 @@ async function generateIconIco() {
       console.warn('  ! icon.ico missing, REGENERATE_ICON=0 ignored');
     }
     pngBuffers = await Promise.all(
-      sizes.map(s => sharp(APPLE_TOUCH_ICON).resize(s, s).png().toBuffer())
+      sizes.map(s => sharp(appleTouchIconPath).resize(s, s).png().toBuffer())
     );
-    console.log('  ✓ icon.ico (from apple-touch-icon.png)');
+    console.log('  ✓ icon.ico (from resources/apple-touch-icon.png)');
   } else {
     if (existsSync(outPath) && process.env.REGENERATE_ICON !== '1') {
       console.log('  ✓ icon.ico (keep existing file)');
@@ -92,9 +100,10 @@ async function generateIconIco() {
 
 async function generateTrayIcon() {
   const outPath = join(RESOURCES_DIR, 'tray-icon.png');
-  if (existsSync(APPLE_TOUCH_ICON)) {
-    await sharp(APPLE_TOUCH_ICON).resize(32, 32).png().toFile(outPath);
-    console.log('  ✓ tray-icon.png (32x32, from apple-touch-icon.png)');
+  const appleTouchIconPath = resolveAppleTouchIconPath();
+  if (appleTouchIconPath) {
+    await sharp(appleTouchIconPath).resize(32, 32).png().toFile(outPath);
+    console.log('  ✓ tray-icon.png (32x32, from resources/apple-touch-icon.png)');
   } else {
     await sharp(Buffer.from(traySvg()))
       .resize(32, 32)

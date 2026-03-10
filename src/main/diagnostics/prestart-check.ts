@@ -5,7 +5,7 @@
 import path from 'node:path'
 import type { OpenClawValidationResult } from '../utils/openclaw-validate.js'
 import { validateOpenclawResources } from '../utils/openclaw-validate.js'
-import { getInstallDir, getUserDataDir } from '../utils/paths.js'
+import { getBundledOpenClawDir, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 import fs from 'node:fs'
 import JSON5 from 'json5'
@@ -25,7 +25,7 @@ export function runPrestartCheck(): PrestartCheckResult {
   const errors: string[] = []
   const fixSuggestions: string[] = []
 
-  const openclawDir = path.join(getInstallDir(), 'resources', 'openclaw')
+  const openclawDir = getBundledOpenClawDir()
   const bundleCheck = validateOpenclawResources(openclawDir)
 
   if (!bundleCheck.ok) {

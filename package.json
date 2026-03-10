@@ -81,6 +81,7 @@
     "ai-agent"
   ],
   "homepage": "https://github.com/agentkernel/openclaw-desktop",
+  "author": "wurongzhao@AgentKernel",
   "repository": {
     "type": "git",
     "url": "https://github.com/agentkernel/openclaw-desktop.git"

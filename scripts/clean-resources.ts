@@ -13,7 +13,7 @@ const RESOURCES_OPENCLAW = join(PROJECT_ROOT, 'resources', 'openclaw')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
 const RESOURCES_ICON = join(PROJECT_ROOT, 'resources', 'icon.ico')
 const RESOURCES_TRAY_ICON = join(PROJECT_ROOT, 'resources', 'tray-icon.png')
-const RESOURCES_APPLE_ICON = join(PROJECT_ROOT, 'resources', 'apple-touch-icon.png')
+const ROOT_APPLE_ICON = join(PROJECT_ROOT, 'apple-touch-icon.png')
 const RESOURCES_SIDEBAR = join(PROJECT_ROOT, 'resources', 'installer', 'installer-sidebar.bmp')
 
 function rmLongPath(dir: string): void {
@@ -37,7 +37,7 @@ function main(): void {
   rmLongPath(DIST_DIR)
   rmLongPath(RESOURCES_ICON)
   rmLongPath(RESOURCES_TRAY_ICON)
-  rmLongPath(RESOURCES_APPLE_ICON)
+  rmLongPath(ROOT_APPLE_ICON)
   rmLongPath(RESOURCES_SIDEBAR)
   console.log('  OK: clean complete\n')
 }
