@@ -5,15 +5,18 @@
 <h1 align="center">OpenClaw Desktop</h1>
 
 <p align="center">
-  <strong>Official-style desktop installer and distribution for <a href="https://github.com/openclaw/openclaw">OpenClaw</a>. Part of the OpenClaw ecosystem.</strong>
+  <strong>Official-style desktop installer &amp; Windows distribution for <a href="https://github.com/openclaw/openclaw">OpenClaw</a>. Part of the OpenClaw ecosystem.</strong><br />
+  <strong>OpenClaw 官方风格的 Windows 桌面安装版与分发版，OpenClaw 生态系统的一部分。</strong>
 </p>
 
 <p align="center">
-  ⭐ <strong>If this project helps you, please give it a star!</strong> ⭐
+  ⭐ <strong>If this project helps you, please give it a star!</strong> ⭐<br />
+  ⭐ <strong>如果这个项目对你有帮助，请点一个 Star 让更多人看到！</strong> ⭐
 </p>
 
 <p align="center">
-  Run OpenClaw on Windows with a native GUI, bundled runtime, guided setup, built-in updater, and a downloadable <code>.exe</code> installer.
+  Run OpenClaw on Windows with a native GUI, bundled runtime, guided setup wizard, built‑in updater, and a downloadable <code>.exe</code> installer.<br />
+  在 Windows 上通过原生桌面 GUI、内置运行时、引导式安装向导和可下载的 <code>.exe</code> 安装程序，一键运行 OpenClaw。
 </p>
 
 <p align="center">
@@ -29,7 +32,7 @@
 </p>
 
 <p align="center">
-  <a href="./README.zh-CN.md">简体中文</a> •
+  <a href="./README.zh-CN.md">简体中文 / Chinese</a> •
   <a href="#download">Download</a> •
   <a href="#how-to-install-openclaw-on-windows">Why it exists</a> •
   <a href="#features">Features</a> •
@@ -42,23 +45,29 @@
 
 ## Download
 
-**Primary download:** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
+**Primary download:** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)  
+**主要下载渠道：** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
 
-- Installer filename: `OpenClaw-Setup-0.1.0.exe`
-- Target platform: Windows 10/11 x64
-- Includes: Electron shell, bundled Node.js runtime, bundled OpenClaw package
-- Also published with: checksum file and `latest.yml` for in-app updates
+- Installer filename / 安装包文件名: `OpenClaw-Setup-0.1.0.exe`
+- Target platform / 适用系统: Windows 10/11 x64
+- Includes / 包含内容: Electron shell, bundled Node.js runtime, bundled OpenClaw package
+- Also published / 同时发布: checksum file and `latest.yml` for in-app updates
 
 ## How to install OpenClaw on Windows?
 
-`OpenClaw` is a powerful open-source AI agent project, but many users wonder **how to install OpenClaw on Windows** or **how to run OpenClaw locally** without a terminal-first setup flow. `OpenClaw Desktop` turns that into a normal desktop install experience:
+`OpenClaw` is a powerful open-source AI agent project, but many users wonder **how to install OpenClaw on Windows**, **how to run OpenClaw locally**, or **how to get an OpenClaw Windows installer** without a terminal‑only setup flow.
+
+`OpenClaw Desktop` turns that into a normal desktop install experience:
 
 - Download one installer instead of wiring everything manually
 - Launch from Start Menu or Desktop shortcut
 - Configure providers, channels, and gateway from a visual setup wizard
 - Update from GitHub Releases without reinstalling from scratch each time
 
-This project is the perfect OpenClaw Windows installer and GUI for your AI agents.
+This project is the ideal **OpenClaw Windows installer**, **OpenClaw desktop app**, and **OpenClaw GUI** for your AI agents.
+
+> 搜索关键词（GitHub / Google / AI 搜索会命中）：  
+> how to install openclaw · openclaw windows installer · openclaw desktop app · openclaw setup wizard · run openclaw locally on windows · openclaw gui for windows
 
 ## Features
 
@@ -225,6 +234,12 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 ⭐ **Community**
 
 Join our Discussions to ask questions, showcase what you've built, or request new features.
+
+## Keywords / 搜索关键词
+
+OpenClaw Desktop · OpenClaw Windows · OpenClaw installer · OpenClaw Windows installer · OpenClaw desktop app ·
+OpenClaw GUI · how to install OpenClaw on Windows · run OpenClaw locally · OpenClaw 桌面版 · OpenClaw Windows 安装器 ·
+OpenClaw 安装教程
 
 ## License
 

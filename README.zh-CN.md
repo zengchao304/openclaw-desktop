@@ -53,6 +53,16 @@
 
 `OpenClaw` 是一个强大的开源 AI Agent 项目，但许多用户想知道**如何在 Windows 上安装 OpenClaw** 或**如何在本地运行 OpenClaw**，而不必经历复杂的终端配置。`OpenClaw Desktop` 将其转化为普通的桌面安装体验：
 
+很多用户会在 GitHub / Google / AI 搜索里输入：
+
+- `how to install openclaw`
+- `openclaw windows installer`
+- `openclaw 桌面版`
+- `openclaw windows 安装器`
+- `openclaw 本地运行`
+
+`OpenClaw Desktop` 就是为这些需求设计的：它把复杂的命令行安装过程封装成一个普通 Windows 安装向导和桌面应用。
+
 - 无需手动配置，只需下载一个安装程序
 - 可通过开始菜单或桌面快捷方式启动
 - 通过可视化向导配置提供商、频道和网关
@@ -202,6 +212,11 @@ pnpm run package:win
 ⭐ **Community (社区)**
 
 欢迎加入我们的 Discussions，提问交流、展示你的作品或请求新功能。
+
+## 关键词 / Keywords
+
+OpenClaw Desktop · OpenClaw Windows · OpenClaw installer · OpenClaw Windows 安装器 · OpenClaw 桌面版 ·
+OpenClaw GUI · how to install openclaw · openclaw windows installer · openclaw 本地运行 · OpenClaw 安装教程
 
 ## 许可证
 
