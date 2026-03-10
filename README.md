@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  This project provides a one-click desktop installer for OpenClaw on Windows, packaging the official OpenClaw runtime with a native desktop experience.
+</p>
+
+<p align="center">
   ⭐ <strong>If this project helps you, please give it a star!</strong> ⭐<br />
   ⭐ <strong>如果这个项目对你有帮助，请点一个 Star 让更多人看到！</strong> ⭐
 </p>
