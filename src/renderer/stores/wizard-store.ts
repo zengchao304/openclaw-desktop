@@ -171,6 +171,13 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
         if (!state.modelConfig.provider || !state.modelConfig.modelId.trim()) {
           return false
         }
+        if (state.modelConfig.provider === 'cloudflare-ai-gateway') {
+          return Boolean(
+            state.modelConfig.apiKey.trim() &&
+              state.modelConfig.cloudflareAccountId?.trim() &&
+              state.modelConfig.cloudflareGatewayId?.trim(),
+          )
+        }
         if (state.modelConfig.provider === 'custom') {
           return Boolean(
             state.modelConfig.apiKey.trim() &&
@@ -261,8 +268,22 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       redirected = true
       set({ deployPhase: 'success', deployMessage: t('wizard.complete.success') })
       let url = `http://127.0.0.1:${port}/`
-      if (token?.trim()) url += `?token=${encodeURIComponent(token.trim())}`
-      setTimeout(() => { window.location.href = url }, 800)
+      if (token?.trim()) url += `#token=${encodeURIComponent(token.trim())}`
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const shellConfig = await window.electronAPI.shellGetConfig()
+            if (!shellConfig?.onboardingMainWindowExpanded) {
+              await window.electronAPI.shellResizeForMainInterface()
+              await window.electronAPI.shellSetConfig({ onboardingMainWindowExpanded: true })
+            }
+          } catch {
+            // 忽略一次性展开状态写入失败，继续跳转主界面
+          } finally {
+            window.location.href = url
+          }
+        })()
+      }, 800)
     }
 
     window.electronAPI.onGatewayStatusChange((status: { status: string; port?: number }) => {

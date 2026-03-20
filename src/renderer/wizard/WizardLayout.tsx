@@ -24,7 +24,7 @@ const STEP_COMPONENTS = [
 export function WizardLayout() {
   const { t } = useTranslation()
   const store = useWizardStore()
-  const { currentStep, completedSteps, deployPhase, deployMessage } = store
+  const { currentStep, completedSteps, deployPhase } = store
 
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === WIZARD_STEP_COUNT - 1
@@ -98,7 +98,10 @@ export function WizardLayout() {
                   {deployPhase === 'error' ? t('wizard.complete.retry') : t('wizard.complete.confirmStart')}
                 </Button>
               ) : isDeploying ? (
-                <span className="text-sm text-muted-foreground">{deployMessage}</span>
+                <Button size="sm" disabled>
+                  <Rocket className="w-4 h-4" />
+                  {t('shell.status.starting')}
+                </Button>
               ) : null
             ) : (
               <Button

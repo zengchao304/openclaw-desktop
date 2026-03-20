@@ -58,6 +58,7 @@ const PROVIDER_LABELS: Record<ModelProvider, string> = {
   xiaomi: 'Xiaomi MiMo',
   chutes: 'Chutes (OAuth)',
   'copilot-proxy': 'Copilot Proxy (Local)',
+  kuae: '夸娥云 (Kuae 编程套餐)',
   custom: 'Custom',
 }
 
@@ -251,7 +252,7 @@ export function CompleteStep() {
             </>
           )}
           {!channelConfig.skipChannels && channelConfig.selectedChannel === 'whatsapp' && (
-            <SummaryRow label={t('wizard.complete.channel')} value={t('wizard.complete.configureViaUI')} compact />
+            <SummaryRow label={t('wizard.complete.channel')} value={t('wizard.complete.configureViaUI')} wrap compact />
           )}
         </SummaryCard>
 

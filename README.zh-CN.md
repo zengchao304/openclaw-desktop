@@ -35,6 +35,7 @@
   <a href="#核心功能">核心功能</a> •
   <a href="#快速开始">快速开始</a> •
   <a href="#本地开发">本地开发</a> •
+  <a href="#更新日志">更新日志</a> •
   <a href="#faq">FAQ</a>
 </p>
 
@@ -44,10 +45,21 @@
 
 **主要下载渠道：** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
 
-- 安装包文件名：`OpenClaw-Setup-0.1.0.exe`
+- 安装包文件名：`OpenClaw-Setup-0.1.1.exe`
 - 适用系统：Windows 10/11 x64
 - 包含内容：Electron 外壳、内置的 Node.js 运行时、内置的 OpenClaw 包
 - 同时发布：用于校验的 checksum 文件及用于应用内更新的 `latest.yml`
+
+## 更新日志
+
+### 0.1.1
+
+- **Kuae（夸娥云编程套餐）与 HTTPS 代理：** 捆绑的 OpenClaw **网关**子进程会继承系统 `HTTP(S)_PROXY`；部分本机代理会导致访问 Kuae API（`coding-plan-endpoint.kuaecloud.net`）时 TLS 失败。桌面端在启动网关时会自动**合并** `NO_PROXY` / `no_proxy`，加入 `coding-plan-endpoint.kuaecloud.net` 与 `.kuaecloud.net`，使 Kuae 相关请求**直连**，其它厂商仍按原代理设置。调试可设置环境变量 `OPENCLAW_SKIP_KUAE_NO_PROXY=1` 关闭该合并。详见 [FAQ → Kuae 与 HTTPS 代理](#faq)。
+- **文档：** README 中增加上述说明（中英 FAQ / Changelog）。
+
+### 0.1.0
+
+- 首个公开发布轨道：Windows 安装包、引导向导、捆绑运行时与应用内更新。
 
 ## 如何在 Windows 上安装 OpenClaw？
 
@@ -85,7 +97,7 @@
 ## 快速开始
 
 1. 从 [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest) 下载最新的安装程序。
-2. 运行 `OpenClaw-Setup-0.1.0.exe`。
+2. 运行 `OpenClaw-Setup-0.1.1.exe`。
 3. 完成安装向导并启动 `OpenClaw Desktop`。
 4. 完成模型提供商和网关的首次运行设置。
 5. 开始从原生 Windows 桌面端使用 OpenClaw。

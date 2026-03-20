@@ -27,6 +27,8 @@ export interface ShellConfig {
   theme: ShellTheme
   lastGatewayPort: number
   updateChannel: UpdateChannel
+  /** 首次向导完成后，是否已执行过主界面展开（一次性） */
+  onboardingMainWindowExpanded?: boolean
   /** 是否自动检查更新，默认 true */
   autoCheckUpdates?: boolean
   /** 上次检查更新时间（ISO 8601） */
@@ -208,6 +210,7 @@ export type ModelProvider =
   | 'kimi-coding'
   | 'chutes'
   | 'copilot-proxy'
+  | 'kuae' // 夸娥云编程套餐 (Kuae Cloud Coding Plan)
   | 'custom'
 
 /** 向导中的模型配置 */
@@ -223,6 +226,10 @@ export interface ModelConfig {
   customBaseUrl?: string
   /** 自定义 Provider: 兼容协议 */
   customCompatibility?: 'openai' | 'anthropic'
+  /** Cloudflare AI Gateway: Account ID */
+  cloudflareAccountId?: string
+  /** Cloudflare AI Gateway: Gateway ID */
+  cloudflareGatewayId?: string
 }
 
 /** 向导中的通道配置 */

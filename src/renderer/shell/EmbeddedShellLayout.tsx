@@ -44,7 +44,7 @@ export interface EmbeddedShellLayoutProps {
 function buildControlUIUrl(port: number, token?: string): string {
   let url = `http://127.0.0.1:${port}/`
   if (token && typeof token === 'string' && token.trim()) {
-    url = `${url}?token=${encodeURIComponent(token.trim())}`
+    url = `${url}#token=${encodeURIComponent(token.trim())}`
   }
   return url
 }
@@ -66,7 +66,6 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
   const [gatewayPort, setGatewayPort] = useState<number | null>(null)
   const [controlUrl, setControlUrl] = useState<string | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasResizedForMainRef = useRef(false)
   const updateAvailable = useUpdateNoticeStore((state) => state.available)
   const updateDismissed = useUpdateNoticeStore((state) => state.dismissed)
   const updateInfo = useUpdateNoticeStore((state) => state.info)
@@ -213,14 +212,6 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
 
   const showControlUIIframe = gatewayPort !== null && controlUrl !== null
   const hasActivePanel = activePanel !== ''
-
-  // 首次进入主界面（Control UI）时调整窗口大小，与向导窗口区分
-  useEffect(() => {
-    if (showControlUIIframe && !hasActivePanel && !hasResizedForMainRef.current) {
-      hasResizedForMainRef.current = true
-      void window.electronAPI.shellResizeForMainInterface()
-    }
-  }, [showControlUIIframe, hasActivePanel])
 
   if (gatewayView === 'error' && errorInfo) {
     return (

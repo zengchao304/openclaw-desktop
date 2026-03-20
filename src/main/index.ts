@@ -1,4 +1,4 @@
-import { app, dialog, Menu, session } from 'electron'
+import { app, dialog, Menu, session, screen } from 'electron'
 import path from 'node:path'
 import { IPC_GATEWAY_LOG, IPC_GATEWAY_STATUS_CHANGE, IPC_STREAM_GATEWAY_LOGS, IPC_UPDATE_AVAILABLE } from '../shared/ipc-channels.js'
 import { APP_NAME, DEFAULT_GATEWAY_PORT, OPENCLAW_CONFIG_FILE } from '../shared/constants.js'
@@ -23,6 +23,8 @@ import { startBackgroundUpdateCheck, stopBackgroundUpdateCheck } from './update/
 import { parseGatewayLogLine } from './logs/index.js'
 import { migrateAuthProfilesIfNeeded } from './wizard/index.js'
 import { syncLoginItemToSystem, getLoginItemOpenAtLogin, clearLoginItem } from './login-item/index.js'
+import { patchGatewayResponseHeaders } from './security/gateway-response-headers.js'
+import { rewriteGatewayRequestUrlWithToken } from './security/gateway-request-auth.js'
 
 process.on('uncaughtException', (error) => {
   if ((error as NodeJS.ErrnoException).code === 'EPIPE') return
@@ -104,46 +106,42 @@ app.whenReady().then(() => {
 
   // Allow Control UI to be embedded in our Shell iframe: OpenClaw sets X-Frame-Options: DENY
   // and frame-ancestors 'none', which would block the iframe. We intercept and relax these
-  // only for Gateway (127.0.0.1) responses so the Shell can embed the Control UI.
+  // only for Gateway loopback responses so the Shell can embed the Control UI.
   let loggedGatewayHeaderPatch = false
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const url = details.url
-    if (url.startsWith('http://127.0.0.1:') || url.startsWith('http://[::1]:')) {
-      const headers = { ...details.responseHeaders }
-      const headerKeys = Object.keys(headers)
-
-      // Electron preserves header key casing; remove all X-Frame-Options variants.
-      for (const key of headerKeys) {
-        if (key.toLowerCase() === 'x-frame-options') {
-          delete headers[key]
-        }
-      }
-
-      const cspKey = headerKeys.find((key) => key.toLowerCase() === 'content-security-policy')
-      if (cspKey) {
-        const cspRaw = headers[cspKey]
-        const relaxFrameAncestors = (value: string) =>
-          value.replace(
-            /frame-ancestors\s+[^;]+/i,
-            "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*",
-          )
-
-        if (Array.isArray(cspRaw)) {
-          headers[cspKey] = cspRaw.map((v) => relaxFrameAncestors(String(v)))
-        } else if (cspRaw) {
-          headers[cspKey] = [relaxFrameAncestors(String(cspRaw))]
-        }
-      } else {
-        headers['Content-Security-Policy'] = ["frame-ancestors 'self' http://localhost:* http://127.0.0.1:*"]
-      }
+    const patchedHeaders = patchGatewayResponseHeaders(details.url, details.responseHeaders)
+    if (patchedHeaders) {
       if (!loggedGatewayHeaderPatch && details.resourceType === 'subFrame') {
         loggedGatewayHeaderPatch = true
-        logInfo(`[OpenClaw] Patched gateway response headers for iframe: ${url}`)
+        logInfo(`[OpenClaw] Patched gateway response headers for iframe: ${details.url}`)
       }
-      callback({ responseHeaders: headers })
+      callback({ responseHeaders: patchedHeaders })
       return
     }
     callback({ responseHeaders: details.responseHeaders })
+  })
+  let loggedGatewayTokenPatch = false
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    if (details.resourceType !== 'webSocket') {
+      callback({})
+      return
+    }
+
+    const cfg = readOpenClawConfig()
+    const port = cfg?.gateway?.port ?? DEFAULT_GATEWAY_PORT
+    const token = cfg?.gateway?.auth?.token
+    const redirectURL = rewriteGatewayRequestUrlWithToken(details.url, { port, token })
+
+    if (redirectURL) {
+      if (!loggedGatewayTokenPatch) {
+        loggedGatewayTokenPatch = true
+        logInfo(`[OpenClaw] Patched gateway websocket request with auth token: ${details.url}`)
+      }
+      callback({ redirectURL })
+      return
+    }
+
+    callback({})
   })
   logInfo(`[OpenClaw] App starting. packaged=${String(app.isPackaged)}`)
   logInfo(`[OpenClaw] paths: exe=${app.getPath('exe')} appPath=${app.getAppPath()} resources=${process.resourcesPath}`)
@@ -173,12 +171,15 @@ app.whenReady().then(() => {
   void readOpenClawConfig() // 预加载，供后续 Gateway 等使用
   migrateAuthProfilesIfNeeded() // 迁移 credentials/ 到 agents/main/agent（原生路径）
   if (!openclawConfigExists()) {
-    // 首次运行进入向导时，固定默认宽度为 980（主界面后续不在这里强制改宽）
+    // 首次运行进入向导时，强制使用稳定尺寸，避免残留窗口状态导致比例异常。
     shellConfig = {
       ...shellConfig,
       windowBounds: {
-        ...shellConfig.windowBounds,
+        x: -1,
+        y: -1,
         width: 980,
+        height: 920,
+        maximized: false,
       },
     }
     writeShellConfig(shellConfig)
@@ -217,8 +218,11 @@ app.whenReady().then(() => {
     resizeForMainInterface: () => {
       const win = windowManager.getMainWindow()
       if (win && !win.isDestroyed() && !win.isMaximized()) {
-        const [, currentHeight] = win.getSize()
-        win.setSize(1280, currentHeight)
+        const display = screen.getDisplayMatching(win.getBounds())
+        const workArea = display.workAreaSize
+        const targetWidth = Math.max(980, Math.min(1440, workArea.width))
+        const targetHeight = Math.max(700, Math.min(960, workArea.height))
+        win.setSize(targetWidth, targetHeight)
         win.center()
       }
     },

@@ -156,6 +156,7 @@ module.exports = {
     shortcutName: 'OpenClaw Desktop',
     runAfterFinish: true,
     deleteAppDataOnUninstall: false,
+    // 必须存在仓库中的 build/installer.nsh（已用 .gitignore 例外跟踪）；勿删，否则 NSIS 打包会失败
     include: 'build/installer.nsh',
   },
 

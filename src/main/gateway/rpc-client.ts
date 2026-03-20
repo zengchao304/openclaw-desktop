@@ -182,6 +182,8 @@ export class GatewayRpcClient {
             const payload = parsed.payload as { nonce?: string } | undefined
             const nonce = payload?.nonce?.trim()
             if (!nonce) {
+              connectResolved = true
+              clearTimeout(timeout)
               reject(new GatewayRpcError('connect.challenge missing nonce', 'GATEWAY_RPC_ERROR'))
               ws.close()
               return

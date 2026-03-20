@@ -40,6 +40,7 @@ const MOONSHOT_MODELS = [
   { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking', reasoning: true },
   { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo', reasoning: true },
 ] as const
+const OLLAMA_LOCAL_AUTH_MARKER = 'ollama-local'
 
 type ProviderSeed = {
   providerId: string
@@ -166,6 +167,12 @@ const PROVIDER_SEEDS: Partial<Record<ModelProvider, ProviderSeed>> = {
     baseUrl: 'http://127.0.0.1:8000/v1',
     api: 'openai-completions',
   },
+  kuae: {
+    providerId: 'kuae',
+    authProviderId: 'openai-compatible',
+    baseUrl: 'https://coding-plan-endpoint.kuaecloud.net/v1',
+    api: 'openai-completions',
+  },
   lmstudio: {
     providerId: 'lmstudio',
     baseUrl: 'http://127.0.0.1:1234/v1',
@@ -208,7 +215,20 @@ const API_KEY_PROVIDER_SET = new Set<ModelProvider>([
   'synthetic',
   'xiaomi',
   'kimi-coding',
+  'kuae',
 ])
+
+function buildDefaultProviderModel(modelId: string): Record<string, unknown> & { id: string; name: string } {
+  return {
+    id: modelId,
+    name: modelId,
+    reasoning: false,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 8192,
+  }
+}
 
 function buildMoonshotProvider(baseUrl: string): ModelProviderConfig {
   return {
@@ -234,6 +254,32 @@ function resolveAuthProviderId(provider: ModelProvider): string {
 function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): void {
   const rawProvider = state.modelConfig.provider
   const provider = rawProvider === 'moonshot-cn' ? 'moonshot' : rawProvider
+  if (provider === 'cloudflare-ai-gateway') {
+    const accountId = state.modelConfig.cloudflareAccountId?.trim()
+    const gatewayId = state.modelConfig.cloudflareGatewayId?.trim()
+    const modelId = state.modelConfig.modelId.trim()
+    if (!accountId || !gatewayId || !modelId) return
+    const modelRef = `cloudflare-ai-gateway/${modelId}`
+    config.agents = config.agents ?? {}
+    config.agents.defaults = config.agents.defaults ?? {}
+    config.agents.defaults.models = {
+      ...(config.agents.defaults.models ?? {}),
+      [modelRef]: {
+        alias: modelId,
+      },
+    }
+    config.models = config.models ?? {}
+    config.models.mode = config.models.mode ?? 'merge'
+    config.models.providers = config.models.providers ?? {}
+    config.models.providers['cloudflare-ai-gateway'] = {
+      ...(config.models.providers['cloudflare-ai-gateway'] ?? {}),
+      baseUrl: `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayId}/anthropic`,
+      api: 'anthropic-messages',
+      ...(state.modelConfig.apiKey.trim() ? { apiKey: state.modelConfig.apiKey.trim() } : {}),
+      models: [buildDefaultProviderModel(modelId)],
+    }
+    return
+  }
   const seed = PROVIDER_SEEDS[provider]
   if (!seed) return
 
@@ -291,34 +337,35 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
     }
     return
   }
+  if (provider === 'ollama') {
+    config.models.providers[seed.providerId] = {
+      ...(config.models.providers[seed.providerId] ?? {}),
+      baseUrl: seed.baseUrl,
+      api: seed.api,
+      apiKey: OLLAMA_LOCAL_AUTH_MARKER,
+      models: [buildDefaultProviderModel(modelId)],
+    }
+    return
+  }
   config.models.providers[seed.providerId] = {
     ...(config.models.providers[seed.providerId] ?? {}),
     baseUrl: seed.baseUrl,
     api: seed.api,
     ...(apiKey ? { apiKey } : {}),
-    models: [
-      {
-        id: modelId,
-        name: modelId,
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128000,
-        maxTokens: 8192,
-      },
-    ],
+    models: [buildDefaultProviderModel(modelId)],
   }
 }
 
 function buildOpenClawConfig(state: WizardState): OpenClawConfig {
   const rawProvider = state.modelConfig.provider
+  const modelId = state.modelConfig.modelId.trim()
   const providerId =
     rawProvider === 'custom'
       ? (state.modelConfig.customProviderId || 'custom')
       : rawProvider === 'moonshot-cn'
         ? 'moonshot'
         : rawProvider
-  const modelRef = `${providerId}/${state.modelConfig.modelId}`
+  const modelRef = `${providerId}/${modelId}`
   const config: OpenClawConfig = {
     gateway: {
       mode: 'local',
@@ -382,9 +429,9 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
         providers: {
           [providerId]: {
             baseUrl,
-            compatibility,
             api,
             apiKey: state.modelConfig.apiKey,
+            models: [buildDefaultProviderModel(modelId || 'default')],
           },
         },
       }
@@ -402,7 +449,8 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
     (API_KEY_PROVIDER_SET.has(providerForAuth) || providerForAuth === 'moonshot-cn') &&
     state.modelConfig.apiKey.trim()
   ) {
-    const profileId = `${authProviderId}:default`
+    const profileName = providerForAuth === 'minimax' ? 'global' : 'default'
+    const profileId = `${authProviderId}:${profileName}`
     config.auth = {
       ...(config.auth ?? {}),
       profiles: {
@@ -414,7 +462,7 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
       },
       order: {
         ...(config.auth?.order ?? {}),
-        [authProviderId]: ['default'],
+        [authProviderId]: [profileName],
       },
     }
   }
@@ -484,7 +532,18 @@ export async function handleWizardCompleteSetup(
     state.modelConfig.apiKey.trim()
   ) {
     try {
-      writeAuthProfile(resolveAuthProviderId(state.modelConfig.provider), state.modelConfig.apiKey)
+      const provider = resolveAuthProviderId(state.modelConfig.provider)
+      const profileName = state.modelConfig.provider === 'minimax' ? 'global' : 'default'
+      const metadata =
+        state.modelConfig.provider === 'cloudflare-ai-gateway' &&
+          state.modelConfig.cloudflareAccountId?.trim() &&
+          state.modelConfig.cloudflareGatewayId?.trim()
+          ? {
+              accountId: state.modelConfig.cloudflareAccountId.trim(),
+              gatewayId: state.modelConfig.cloudflareGatewayId.trim(),
+            }
+          : undefined
+      writeAuthProfile(provider, state.modelConfig.apiKey, { profileName, metadata })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('[wizard] Auth profile write failed:', message)

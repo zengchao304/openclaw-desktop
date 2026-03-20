@@ -44,6 +44,7 @@ const AUTH_MODE_BY_PROVIDER: Record<ModelProvider, ProviderAuthMode> = {
   'kimi-coding': 'api_key',
   chutes: 'oauth',
   'copilot-proxy': 'none',
+  kuae: 'api_key',
   custom: 'api_key',
 }
 

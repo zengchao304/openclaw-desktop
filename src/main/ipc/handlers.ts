@@ -305,6 +305,8 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         moonshotRegion: raw.moonshotRegion === 'cn' ? 'cn' : raw.moonshotRegion === 'global' ? 'global' : undefined,
         customProviderId: typeof raw.customProviderId === 'string' ? raw.customProviderId : undefined,
         customBaseUrl: typeof raw.customBaseUrl === 'string' ? raw.customBaseUrl : undefined,
+        cloudflareAccountId: typeof raw.cloudflareAccountId === 'string' ? raw.cloudflareAccountId : undefined,
+        cloudflareGatewayId: typeof raw.cloudflareGatewayId === 'string' ? raw.cloudflareGatewayId : undefined,
         customCompatibility:
           raw.customCompatibility === 'anthropic' ? 'anthropic' : raw.customCompatibility === 'openai' ? 'openai' : undefined,
       }
@@ -332,9 +334,6 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         writeShellConfig: deps.writeShellConfig,
         gatewayManager: deps.gatewayManager,
       })
-      if (result.ok && deps.resizeForMainInterface) {
-        deps.resizeForMainInterface()
-      }
       return result
     }),
   )
@@ -464,6 +463,8 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         moonshotRegion: raw.moonshotRegion === 'cn' ? 'cn' : raw.moonshotRegion === 'global' ? 'global' : undefined,
         customProviderId: typeof raw.customProviderId === 'string' ? raw.customProviderId : undefined,
         customBaseUrl: typeof raw.customBaseUrl === 'string' ? raw.customBaseUrl : undefined,
+        cloudflareAccountId: typeof raw.cloudflareAccountId === 'string' ? raw.cloudflareAccountId : undefined,
+        cloudflareGatewayId: typeof raw.cloudflareGatewayId === 'string' ? raw.cloudflareGatewayId : undefined,
         customCompatibility:
           raw.customCompatibility === 'anthropic' ? 'anthropic' : raw.customCompatibility === 'openai' ? 'openai' : undefined,
       }
@@ -819,6 +820,7 @@ export function removeIpcHandlers(): void {
   ipcMain.removeHandler(IPC_CONFIG_READ)
   ipcMain.removeHandler(IPC_CONFIG_WRITE)
   ipcMain.removeHandler(IPC_CONFIG_EXISTS)
+  ipcMain.removeHandler(IPC_CONFIG_VALIDATE)
   ipcMain.removeHandler(IPC_SHELL_GET_CONFIG)
   ipcMain.removeHandler(IPC_SHELL_SET_CONFIG)
   ipcMain.removeHandler(IPC_SYSTEM_GET_LOCALE)
@@ -829,7 +831,10 @@ export function removeIpcHandlers(): void {
   ipcMain.removeHandler(IPC_WIZARD_COMPLETE_SETUP)
   ipcMain.removeHandler(IPC_SYSTEM_OPEN_LOG_DIR)
   ipcMain.removeHandler(IPC_SHELL_GET_VERSIONS)
+  ipcMain.removeHandler(IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE)
   ipcMain.removeHandler(IPC_DIAGNOSTICS_EXPORT)
+  ipcMain.removeHandler(IPC_DIAGNOSTICS_RUN)
+  ipcMain.removeHandler(IPC_DIAGNOSTICS_SUMMARY)
   ipcMain.removeHandler(IPC_PROVIDERS_LIST)
   ipcMain.removeHandler(IPC_PROVIDERS_SAVE_PROFILE)
   ipcMain.removeHandler(IPC_PROVIDERS_DELETE_PROFILE)
@@ -840,6 +845,7 @@ export function removeIpcHandlers(): void {
   ipcMain.removeHandler(IPC_PROVIDERS_SET_MODEL_DEFAULTS)
   ipcMain.removeHandler(IPC_SKILLS_LIST)
   ipcMain.removeHandler(IPC_SKILLS_TOGGLE)
+  ipcMain.removeHandler(IPC_SKILLS_RELOAD)
   ipcMain.removeHandler(IPC_EXTENSIONS_LIST)
   ipcMain.removeHandler(IPC_EXTENSIONS_TOGGLE)
   ipcMain.removeHandler(IPC_REGISTRY_RELOAD)

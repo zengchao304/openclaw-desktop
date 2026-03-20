@@ -72,6 +72,7 @@ const PROVIDERS: readonly ProviderInfo[] = [
   { id: 'vllm', label: 'vLLM (Local)', placeholder: 'your-model-id' },
   { id: 'lmstudio', label: 'LM Studio (Local)', placeholder: 'your-model-id' },
   { id: 'xiaomi', label: 'Xiaomi MiMo', placeholder: 'xiaomi-...' },
+  { id: 'kuae', label: '夸娥云 (Kuae 编程套餐)', placeholder: 'your_api_key' },
   { id: 'custom', label: 'Custom (OpenAI/Anthropic Compatible)', placeholder: 'Enter API Key' },
 ] as const
 
@@ -93,10 +94,10 @@ const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPreset[]>>
     { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
   ],
   google: [
-    { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Preview)' },
-    { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Preview)' },
+    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' },
+    { id: 'gemini-3.1-flash-preview', label: 'Gemini 3.1 Flash (Preview)' },
   ],
-  openrouter: [{ id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5' }],
+  openrouter: [{ id: 'auto', label: 'OpenRouter Auto' }],
   mistral: [{ id: 'mistral-large-latest', label: 'Mistral Large Latest' }],
   opencode: [{ id: 'claude-opus-4-6', label: 'Claude Opus 4.6' }],
   moonshot: [
@@ -114,10 +115,10 @@ const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPreset[]>>
     { id: 'kimi-k2-thinking-turbo', label: 'Kimi K2 Thinking Turbo' },
   ],
   'kimi-coding': [{ id: 'k2p5', label: 'Kimi Coding K2P5' }],
-  minimax: [{ id: 'minimax-m2.5', label: 'MiniMax M2.5' }],
+  minimax: [{ id: 'MiniMax-M2.5', label: 'MiniMax M2.5' }],
   zai: [{ id: 'glm-5', label: 'GLM-5' }],
   groq: [{ id: 'llama-3.3-70b', label: 'Llama 3.3 70B' }],
-  xai: [{ id: 'grok-code-fast-1', label: 'Grok Code Fast 1' }],
+  xai: [{ id: 'grok-4', label: 'Grok 4' }],
   cerebras: [{ id: 'zai-glm-4.7', label: 'GLM 4.7 (Cerebras)' }],
   huggingface: [{ id: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek R1' }],
   kilocode: [{ id: 'kilo/auto', label: 'Kilo Auto (Smart Routing)' }],
@@ -147,12 +148,14 @@ const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPreset[]>>
     { id: 'kimi-k2-thinking', label: 'Kimi K2 Thinking' },
     { id: 'glm-4.7', label: 'GLM 4.7' },
   ],
-  qianfan: [{ id: 'ernie-4.0-8k', label: 'ERNIE 4.0 8K' }],
+  qianfan: [{ id: 'deepseek-v3.2', label: 'DeepSeek V3.2' }],
   bedrock: [{ id: 'anthropic.claude-3-5-sonnet-20240620-v1:0', label: 'Claude 3.5 Sonnet' }],
   together: [{ id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' }],
-  nvidia: [{ id: 'meta/llama3-70b-instruct', label: 'Llama 3 70B Instruct' }],
+  nvidia: [{ id: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'NVIDIA Llama 3.1 Nemotron 70B' }],
   xiaomi: [{ id: 'mimo-7b', label: 'MiMo 7B' }],
   chutes: [{ id: 'chutes-default', label: 'Chutes Default' }],
+  'vercel-ai-gateway': [{ id: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6' }],
+  'cloudflare-ai-gateway': [{ id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' }],
   'copilot-proxy': [
     { id: 'gpt-5.2', label: 'GPT-5.2' },
     { id: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
@@ -165,17 +168,18 @@ const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPreset[]>>
   ollama: [{ id: 'llama3.3', label: 'Llama 3.3' }],
   vllm: [{ id: 'your-model-id', label: 'Your model ID' }],
   lmstudio: [{ id: 'your-model-id', label: 'Your model ID' }],
+  kuae: [{ id: 'GLM-4.7', label: 'GLM-4.7' }],
 }
 
 const CUSTOM_MODEL_OPTION = '__custom__'
 const TESTABLE_PROVIDERS = new Set<ModelProvider>([
   'anthropic',
   'openai',
-  'openai-codex',
   'google',
   'moonshot',
   'moonshot-cn',
   'openrouter',
+  'kuae',
   'custom',
 ])
 
@@ -222,11 +226,21 @@ export function ModelStep() {
         customProviderId: provider === 'custom' ? modelConfig.customProviderId ?? '' : '',
         customBaseUrl: provider === 'custom' ? modelConfig.customBaseUrl ?? '' : '',
         customCompatibility: provider === 'custom' ? modelConfig.customCompatibility ?? 'openai' : undefined,
+        cloudflareAccountId: provider === 'cloudflare-ai-gateway' ? modelConfig.cloudflareAccountId ?? '' : '',
+        cloudflareGatewayId: provider === 'cloudflare-ai-gateway' ? modelConfig.cloudflareGatewayId ?? '' : '',
       })
       setUseCustomModel(!presets)
       setTestState({ status: 'idle', message: '' })
     },
-    [modelConfig.customBaseUrl, modelConfig.customCompatibility, modelConfig.customProviderId, modelConfig.moonshotRegion, setModelConfig],
+    [
+      modelConfig.cloudflareAccountId,
+      modelConfig.cloudflareGatewayId,
+      modelConfig.customBaseUrl,
+      modelConfig.customCompatibility,
+      modelConfig.customProviderId,
+      modelConfig.moonshotRegion,
+      setModelConfig,
+    ],
   )
 
   const handleModelSelect = useCallback(
@@ -383,6 +397,46 @@ export function ModelStep() {
               <SelectItem value="cn">{t('wizard.model.moonshotChina')}</SelectItem>
             </SelectContent>
           </Select>
+        </fieldset>
+      )}
+
+      {modelConfig.provider === 'cloudflare-ai-gateway' && (
+        <fieldset className="space-y-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+            <div className="space-y-1.5">
+              <label htmlFor="cloudflare-account-id" className="text-sm font-medium">
+                Cloudflare Account ID <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="cloudflare-account-id"
+                type="text"
+                value={modelConfig.cloudflareAccountId ?? ''}
+                onChange={(e) => {
+                  setModelConfig({ cloudflareAccountId: e.target.value })
+                  setTestState({ status: 'idle', message: '' })
+                }}
+                placeholder="your-account-id"
+                className="font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="cloudflare-gateway-id" className="text-sm font-medium">
+                Cloudflare Gateway ID <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="cloudflare-gateway-id"
+                type="text"
+                value={modelConfig.cloudflareGatewayId ?? ''}
+                onChange={(e) => {
+                  setModelConfig({ cloudflareGatewayId: e.target.value })
+                  setTestState({ status: 'idle', message: '' })
+                }}
+                placeholder="your-gateway-id"
+                className="font-mono"
+              />
+            </div>
+          </div>
         </fieldset>
       )}
 

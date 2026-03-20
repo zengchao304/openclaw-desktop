@@ -24,6 +24,7 @@ export function getDefaultShellConfig(): ShellConfig {
     theme: 'system',
     lastGatewayPort: DEFAULT_GATEWAY_PORT,
     updateChannel: 'stable',
+    onboardingMainWindowExpanded: false,
     autoCheckUpdates: true,
     windowBounds: {
       x: -1,
@@ -68,5 +69,14 @@ export function writeShellConfig(config: ShellConfig): void {
   const configPath = getShellConfigPath()
   const dir = path.dirname(configPath)
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+  const data = JSON.stringify(config, null, 2) + '\n'
+  const tmpPath = `${configPath}.tmp`
+  fs.writeFileSync(tmpPath, data, 'utf-8')
+  try {
+    fs.renameSync(tmpPath, configPath)
+  } catch {
+    // Windows: rename fails if target exists; remove it and retry
+    fs.unlinkSync(configPath)
+    fs.renameSync(tmpPath, configPath)
+  }
 }

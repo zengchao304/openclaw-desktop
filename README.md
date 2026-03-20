@@ -54,6 +54,7 @@
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick start</a> •
   <a href="#development">Development</a> •
+  <a href="#changelog">Changelog</a> •
   <a href="#faq">FAQ</a>
 </p>
 
@@ -64,10 +65,21 @@
 **Primary download:** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)  
 **主要下载渠道：** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
 
-- Installer filename / 安装包文件名: `OpenClaw-Setup-0.1.0.exe`
+- Installer filename / 安装包文件名: `OpenClaw-Setup-0.1.1.exe`
 - Target platform / 适用系统: Windows 10/11 x64
 - Includes / 包含内容: Electron shell, bundled Node.js runtime, bundled OpenClaw package
 - Also published / 同时发布: checksum file and `latest.yml` for in-app updates
+
+## Changelog
+
+### 0.1.1
+
+- **Kuae (夸娥云 Coding Plan) & HTTPS proxy:** When the bundled OpenClaw **gateway** child process inherits system `HTTP(S)_PROXY`, some local proxies break TLS to Kuae’s API (`coding-plan-endpoint.kuaecloud.net`). The desktop app now **merges** `NO_PROXY` / `no_proxy` for `coding-plan-endpoint.kuaecloud.net` and `.kuaecloud.net` on gateway spawn so Kuae traffic can go **direct** while other providers still follow your proxy settings. Set `OPENCLAW_SKIP_KUAE_NO_PROXY=1` to disable this merge. See [FAQ → Kuae and HTTPS proxy](#faq).
+- **文档 / Docs:** README FAQ entry for the above behavior (English + 简体中文).
+
+### 0.1.0
+
+- Initial public release track with Windows installer, setup wizard, bundled runtime, and updater.
 
 ## How to install OpenClaw on Windows?
 
@@ -97,7 +109,7 @@ This project is the ideal **OpenClaw Windows installer**, **OpenClaw desktop app
 ## Quick Start
 
 1. Download the latest installer from [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest).
-2. Run `OpenClaw-Setup-0.1.0.exe`.
+2. Run `OpenClaw-Setup-0.1.1.exe`.
 3. Finish the installation wizard and launch `OpenClaw Desktop`.
 4. Complete the first-run setup for your model provider and gateway.
 5. Start using OpenClaw from a native Windows desktop shell.
@@ -182,6 +194,8 @@ Build output:
 
 - `dist/OpenClaw-Setup-<version>.exe`
 
+Windows 安装包使用 NSIS；仓库根目录下的 `build/installer.nsh` 为自定义脚本（由 `electron-builder` 引用），**需保留并提交**，勿删除（`.gitignore` 已对该文件单独放行）。
+
 ## Project Structure
 
 ```text
@@ -232,6 +246,16 @@ Uninstalling the app does not delete user configuration by default.
 <summary><strong>How do updates work?</strong></summary>
 
 The app checks GitHub Releases and can download updates through the built-in updater. Release assets also remain available for manual download and rollback.
+</details>
+
+<details>
+<summary><strong>Kuae (夸娥云) and HTTPS proxy on Windows</strong></summary>
+
+The bundled OpenClaw **gateway** runs as a child process that inherits `HTTP(S)_PROXY`. Some local proxies break TLS to Kuae’s Coding Plan endpoint. The desktop app therefore **merges** `NO_PROXY` / `no_proxy` for `coding-plan-endpoint.kuaecloud.net` and `.kuaecloud.net` when spawning the gateway, so Kuae traffic goes **direct** while other URLs can still use the proxy.
+
+To disable this merge (e.g. debugging), set environment variable `OPENCLAW_SKIP_KUAE_NO_PROXY=1` before starting OpenClaw Desktop.
+
+捆绑的 OpenClaw **网关** 以子进程运行并继承系统 `HTTP(S)_PROXY`。部分本机代理会导致访问 Kuae API 时 TLS 失败；桌面端在启动网关时会自动合并 `NO_PROXY`，使 Kuae 域名直连，其它请求仍可走代理。调试可设 `OPENCLAW_SKIP_KUAE_NO_PROXY=1` 关闭该行为。
 </details>
 
 ## Community & Support

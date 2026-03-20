@@ -410,7 +410,12 @@ export class WindowManager {
   }
 }
 
+function escapeHtml(raw: string): string {
+  return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function buildErrorHtml(title: string, detail: string): string {
-  const escaped = detail.replace(/</g, '&lt;').replace(/&/g, '&amp;').replace(/\n/g, '<br>')
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${APP_NAME}</title><style>body{font-family:system-ui;padding:2rem;max-width:640px;margin:0 auto;background:#1a1a1a;color:#eee;}h1{color:#ff6b6b;} .detail{background:#333;padding:1rem;overflow:auto;font-size:12px;white-space:pre-wrap;} .tip{margin-top:1.5rem;color:#888;font-size:14px;}</style></head><body><h1>${title}</h1><div class="detail">${escaped}</div><p class="tip">Debug: Set OPENCLAW_DEVTOOLS=1 and restart the exe to open DevTools.</p></body></html>`
+  const escapedTitle = escapeHtml(title)
+  const escaped = escapeHtml(detail).replace(/\n/g, '<br>')
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${APP_NAME}</title><style>body{font-family:system-ui;padding:2rem;max-width:640px;margin:0 auto;background:#1a1a1a;color:#eee;}h1{color:#ff6b6b;} .detail{background:#333;padding:1rem;overflow:auto;font-size:12px;white-space:pre-wrap;} .tip{margin-top:1.5rem;color:#888;font-size:14px;}</style></head><body><h1>${escapedTitle}</h1><div class="detail">${escaped}</div><p class="tip">Debug: Set OPENCLAW_DEVTOOLS=1 and restart the exe to open DevTools.</p></body></html>`
 }

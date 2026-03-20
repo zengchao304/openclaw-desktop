@@ -18,6 +18,7 @@ interface ApiKeyCredential {
   type: 'api_key'
   provider: string
   key: string
+  metadata?: Record<string, unknown>
 }
 
 interface TokenCredential {
@@ -117,14 +118,20 @@ export function migrateAuthProfilesIfNeeded(): void {
  * Merges with existing profiles (preserving other providers).
  * ProfileId format: `{provider}:default` (matches OpenClaw CLI convention).
  */
-export function writeAuthProfile(provider: string, apiKey: string): void {
+export function writeAuthProfile(
+  provider: string,
+  apiKey: string,
+  options?: { profileName?: string; metadata?: Record<string, unknown> },
+): void {
   const store = loadExistingStore()
-  const profileId = `${provider}:default`
+  const profileName = options?.profileName?.trim() || 'default'
+  const profileId = `${provider}:${profileName}`
 
   store.profiles[profileId] = {
     type: 'api_key',
     provider,
     key: apiKey,
+    ...(options?.metadata ? { metadata: options.metadata } : {}),
   }
 
   const agentAuthDir = resolveAgentAuthDir()

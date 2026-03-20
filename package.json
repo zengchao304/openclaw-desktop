@@ -1,6 +1,6 @@
 {
   "name": "openclaw-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Community-maintained Windows desktop app and installer for OpenClaw.",
   "type": "module",
   "main": "out/main/index.js",
@@ -17,7 +17,10 @@
     "verify-native-modules": "tsx scripts/verify-native-modules.ts",
     "clean-resources": "tsx scripts/clean-resources.ts",
     "generate-resources": "node scripts/generate-resources.mjs",
-    "package:win": "pnpm run clean-resources && pnpm run verify-bundle && cross-env REGENERATE_ICON=1 pnpm run generate-resources && pnpm run prepare-bundle && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_EXE_RESOURCE_EDIT=0 ELECTRON_BUILDER_BINARIES_MIRROR=https://registry.npmmirror.com/-/binary/electron-builder-binaries/ pnpm exec electron-builder --win --x64 --config electron-builder.config.cjs --publish never",
+    "smoke:csp": "tsx scripts/smoke/gateway-response-headers-smoke.ts",
+    "smoke:gateway": "electron scripts/smoke/process-manager-electron-runner.cjs",
+    "smoke": "npm run smoke:csp && npm run smoke:gateway",
+    "package:win": "pnpm run build && pnpm run clean-resources && pnpm run verify-bundle && cross-env REGENERATE_ICON=1 pnpm run generate-resources && pnpm run prepare-bundle && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_EXE_RESOURCE_EDIT=0 ELECTRON_BUILDER_BINARIES_MIRROR=https://registry.npmmirror.com/-/binary/electron-builder-binaries/ pnpm exec electron-builder --win --x64 --config electron-builder.config.cjs --publish never",
     "package:win:signed": "node scripts/package-win-signed.mjs",
     "generate-dev-cert": "node scripts/generate-dev-cert.mjs",
     "export-dev-cert-for-ci": "node scripts/export-dev-cert-for-ci.mjs"

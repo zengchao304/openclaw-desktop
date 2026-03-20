@@ -32,6 +32,7 @@ export interface GatewayProcessManagerOptions {
   onLog?: (event: GatewayLogEvent) => void
   onStatusChange?: (status: GatewayStatus) => void
   healthCheckIntervalMs?: number
+  healthCheckFailureThreshold?: number
   maxAutoRestarts?: number
   restartWindowMs?: number
 }
@@ -40,6 +41,43 @@ export interface GatewayHealthCheckResult {
   ok: boolean
   statusCode?: number
   details?: string
+}
+
+/**
+ * Kuae Coding Plan（OpenAI 兼容）API 主机。部分本机 HTTPS 代理（如 127.0.0.1:10808）对该域名 TLS 握手异常，
+ * 而直连正常。将下列主机并入网关子进程的 NO_PROXY，使 LLM 请求直连 Kuae，其余流量仍可走系统代理。
+ * 设置 OPENCLAW_SKIP_KUAE_NO_PROXY=1 可禁用此合并（调试用）。
+ */
+const KUAE_DIRECT_NO_PROXY_HOSTS = ['coding-plan-endpoint.kuaecloud.net', '.kuaecloud.net'] as const
+
+function mergeNoProxyList(existing: string | undefined, additions: readonly string[]): string {
+  const parts = new Set<string>()
+  for (const segment of (existing ?? '').split(/[\s,]+/)) {
+    const t = segment.trim()
+    if (t) parts.add(t)
+  }
+  for (const a of additions) {
+    parts.add(a)
+  }
+  return [...parts].join(',')
+}
+
+/**
+ * 在保留 HTTPS_PROXY 等的前提下，为 Kuae API 追加 NO_PROXY / no_proxy（Node fetch/undici 会读取）。
+ */
+function applyKuaeNoProxyBypass(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (env.OPENCLAW_SKIP_KUAE_NO_PROXY === '1' || env.OPENCLAW_SKIP_KUAE_NO_PROXY === 'true') {
+    return env
+  }
+  const merged = mergeNoProxyList(
+    [env.NO_PROXY, env.no_proxy].filter(Boolean).join(','),
+    KUAE_DIRECT_NO_PROXY_HOSTS,
+  )
+  return {
+    ...env,
+    NO_PROXY: merged,
+    no_proxy: merged,
+  }
 }
 
 function withNodeInPath(env: NodeJS.ProcessEnv, nodePath: string): NodeJS.ProcessEnv {
@@ -70,7 +108,7 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}): Gat
     args,
     cwd: getInstallDir(),
     env: {
-      ...withNodeInPath(process.env, nodePath),
+      ...applyKuaeNoProxyBypass(withNodeInPath(process.env, nodePath)),
       OPENCLAW_STATE_DIR: getUserDataDir(),
       OPENCLAW_CONFIG_PATH: path.join(getUserDataDir(), OPENCLAW_CONFIG_FILE),
       OPENCLAW_AGENT_DIR: path.join(getUserDataDir(), 'agents', 'main', 'agent'),
@@ -110,8 +148,11 @@ export class GatewayProcessManager {
   private lastLaunchOptions: GatewayLaunchOptions = {}
   private healthCheckTimer: NodeJS.Timeout | null = null
   private healthCheckInFlight = false
+  private consecutiveHealthCheckFailures = 0
   private recentRestarts: number[] = []
+  private lifecycleChain: Promise<GatewayStatus>
   private readonly healthCheckIntervalMs: number
+  private readonly healthCheckFailureThreshold: number
   private readonly maxAutoRestarts: number
   private readonly restartWindowMs: number
   private readonly statusListeners = new Set<(status: GatewayStatus) => void>()
@@ -124,8 +165,10 @@ export class GatewayProcessManager {
     this.onLog = options.onLog
     this.onStatusChange = options.onStatusChange
     this.healthCheckIntervalMs = options.healthCheckIntervalMs ?? 10_000
+    this.healthCheckFailureThreshold = Math.max(1, options.healthCheckFailureThreshold ?? 1)
     this.maxAutoRestarts = options.maxAutoRestarts ?? 3
     this.restartWindowMs = options.restartWindowMs ?? 5 * 60_000
+    this.lifecycleChain = Promise.resolve(this.getStatus())
   }
 
   onGatewayStatusChange(listener: (status: GatewayStatus) => void): () => void {
@@ -139,8 +182,8 @@ export class GatewayProcessManager {
   }
 
   getStatus(): GatewayStatus {
-    const running =
-      this.statusValue === 'running' || Boolean(this.child && !this.child.killed && this.statusValue !== 'stopped')
+    const childAlive = Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null)
+    const running = this.statusValue === 'running' || childAlive
     const uptime = running && this.startedAt > 0 ? Date.now() - this.startedAt : 0
 
     return {
@@ -152,8 +195,37 @@ export class GatewayProcessManager {
     }
   }
 
+  private enqueueLifecycle(fn: () => Promise<GatewayStatus>): Promise<GatewayStatus> {
+    const next = this.lifecycleChain.then(fn, fn)
+    this.lifecycleChain = next.catch(() => this.getStatus())
+    return next
+  }
+
   async start(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {
-    if (this.child && !this.child.killed) {
+    return this.enqueueLifecycle(() => this.startInternal(options))
+  }
+
+  async stop(timeoutMs = 5000): Promise<GatewayStatus> {
+    return this.enqueueLifecycle(() => this.stopInternal(timeoutMs))
+  }
+
+  async restart(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {
+    return this.enqueueLifecycle(() => this.restartInternal(options))
+  }
+
+  private async startInternal(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {
+    // `child.killed` is not a reliable signal for liveness (see smoke tests). Treat the
+    // child as alive based on real process state.
+    const childAlive = Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null)
+    if (childAlive && !this.stopping && !this.restarting) {
+      // Recover from stale states (stopped/error) when the process is still alive.
+      if (this.statusValue === 'stopped' || this.statusValue === 'error') {
+        this.startedAt = this.startedAt > 0 ? this.startedAt : Date.now()
+        this.statusValue = 'running'
+        this.consecutiveHealthCheckFailures = 0
+        this.startHealthCheckLoop()
+        this.notifyStatusChange()
+      }
       return this.getStatus()
     }
 
@@ -176,6 +248,8 @@ export class GatewayProcessManager {
     if (existing.ok) {
       this.startedAt = Date.now()
       this.statusValue = 'running'
+      this.consecutiveHealthCheckFailures = 0
+      this.startHealthCheckLoop()
       this.notifyStatusChange()
       return this.getStatus()
     }
@@ -241,11 +315,12 @@ export class GatewayProcessManager {
     return this.getStatus()
   }
 
-  async stop(timeoutMs = 5000): Promise<GatewayStatus> {
+  private async stopInternal(timeoutMs = 5000): Promise<GatewayStatus> {
     this.waitForReadyAbort?.abort()
     this.waitForReadyAbort = null
     this.stopHealthCheckLoop()
     this.healthCheckInFlight = false
+    this.consecutiveHealthCheckFailures = 0
     this.recentRestarts = []
 
     if (!this.child) {
@@ -289,12 +364,21 @@ export class GatewayProcessManager {
       }, timeoutMs)
     })
 
+    // If the child is still alive after timeout, mark as error and clear `stopping`.
+    // This matches smoke tests and prevents UI from being stuck in `stopped` state.
+    const stillAlive = Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null)
+    this.stopping = false
+    if (stillAlive) {
+      this.statusValue = 'error'
+      this.notifyStatusChange()
+    }
+
     return this.getStatus()
   }
 
-  async restart(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {
-    await this.stop()
-    return this.start(options)
+  private async restartInternal(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {
+    await this.stopInternal()
+    return this.startInternal(options)
   }
 
   /**
@@ -306,18 +390,24 @@ export class GatewayProcessManager {
     this.waitForReadyAbort = new AbortController()
     const signal = this.waitForReadyAbort.signal
     const pollIntervalMs = 600
-    const warnAfterMs = 300_000
-    const deadline = Date.now() + warnAfterMs
-    let warned = false
-    while (!signal.aborted && this.child && !this.child.killed && this.statusValue === 'starting') {
-      if (!warned && Date.now() >= deadline) {
-        this.emitLog('stderr', '[gateway] wait for ready timed out')
-        warned = true
-      }
+    const readyTimeoutMs = 300_000
+    const deadline = Date.now() + readyTimeoutMs
+    // Note: `child.killed` is not always reliable (see smoke tests). We use it only
+    // to stop health polling elsewhere; here we keep waiting based on actual health.
+    while (!signal.aborted && this.child && this.statusValue === 'starting') {
       const result = await this.checkGatewayHealth(this.currentPort)
       if (result.ok) {
+        this.consecutiveHealthCheckFailures = 0
         this.statusValue = 'running'
         this.notifyStatusChange()
+        return
+      }
+      if (Date.now() >= deadline) {
+        this.emitLog('stderr', `[gateway] wait for ready timed out after ${Math.round(readyTimeoutMs / 1000)}s`)
+        if (this.statusValue === 'starting') {
+          this.statusValue = 'error'
+          this.notifyStatusChange()
+        }
         return
       }
       await new Promise((r) => setTimeout(r, pollIntervalMs))
@@ -348,8 +438,20 @@ export class GatewayProcessManager {
     this.healthCheckInFlight = true
     try {
       const result = await this.checkGatewayHealth(this.currentPort)
-      if (!result.ok) {
-        this.emitLog('stderr', `[gateway] health check failed (${result.details ?? 'unknown'})`)
+      if (result.ok) {
+        this.consecutiveHealthCheckFailures = 0
+        return
+      }
+
+      this.consecutiveHealthCheckFailures += 1
+      const detail = result.details ?? 'unknown'
+      this.emitLog(
+        'stderr',
+        `[gateway] health check failed (${detail}) [${this.consecutiveHealthCheckFailures}/${this.healthCheckFailureThreshold}]`,
+      )
+
+      if (this.consecutiveHealthCheckFailures >= this.healthCheckFailureThreshold) {
+        this.consecutiveHealthCheckFailures = 0
         await this.tryAutoRestart('health-check')
       }
     } finally {
