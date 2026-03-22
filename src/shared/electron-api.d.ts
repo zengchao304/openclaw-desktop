@@ -22,6 +22,9 @@ import type {
   PostUpdateValidationResult,
   DiagnosticReport,
   DiagnosticItem,
+  PairingApproveResult,
+  PairingListApprovedResult,
+  PairingListPendingResult,
 } from './types'
 
 /** TCP port check result */
@@ -141,6 +144,7 @@ export interface ElectronAPI {
   wizardCompleteSetup: (state: WizardState) => Promise<WizardCompleteResult>
   shellGetVersions: () => Promise<AppVersionInfo>
   shellResizeForMainInterface: () => Promise<void>
+  shellSetWindowTitle: (title: string) => Promise<void>
   diagnosticsExport: () => Promise<{ path: string; checksum: string }>
 
   providersList: () => Promise<ProvidersListResult>
@@ -186,6 +190,11 @@ export interface ElectronAPI {
 
   backupCreate: (opts?: { output?: string; includeWorkspace?: boolean; onlyConfig?: boolean; verify?: boolean }) => Promise<BackupCreateResult>
   backupVerify: (archivePath: string) => Promise<BackupVerifyResult>
+
+  pairingListPending: (opts: { channel: 'feishu' }) => Promise<PairingListPendingResult>
+  pairingListApproved: (opts: { channel: 'feishu' }) => Promise<PairingListApprovedResult>
+  pairingApprove: (opts: { channel: 'feishu'; code: string; openId?: string }) => Promise<PairingApproveResult>
+  pairingRemoveApproved: (opts: { channel: 'feishu'; openId: string }) => Promise<{ ok: boolean }>
 
   // ─── Event subscriptions ───────────────────────────────────────────────────
   onGatewayStatusChange: (callback: (status: GatewayStatus) => void) => Unsubscribe

@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LoadingView } from '@/shell/LoadingView'
 import { EmbeddedShellLayout, type EmbeddedPanel } from '@/shell/EmbeddedShellLayout'
 import { WizardLayout } from './wizard/WizardLayout'
+import { syncNativeWindowTitle } from '@/i18n'
 
 function getHashRoute(): string {
   return window.location.hash.replace(/^#/, '')
 }
 
+/** Legacy hash from earlier builds */
+function normalizeShellRoute(route: string): string {
+  if (route === 'feishu-access') return 'feishu-settings'
+  return route
+}
+
 function App() {
+  const { t, i18n } = useTranslation()
   const [route, setRoute] = useState<string | null>(null)
   const [configExists, setConfigExists] = useState<boolean | null>(null)
 
@@ -21,7 +30,7 @@ function App() {
           setRoute('wizard')
           return
         }
-        setRoute(getHashRoute() || '')
+        setRoute(normalizeShellRoute(getHashRoute() || ''))
       })
       .catch((err) => {
         console.warn('[OpenClaw] configExists failed:', err)
@@ -32,7 +41,7 @@ function App() {
 
   useEffect(() => {
     if (configExists !== true) return
-    const handler = () => setRoute(getHashRoute() || '')
+    const handler = () => setRoute(normalizeShellRoute(getHashRoute() || ''))
     window.addEventListener('hashchange', handler)
     return () => window.removeEventListener('hashchange', handler)
   }, [configExists])
@@ -45,32 +54,60 @@ function App() {
     setRoute(panel)
   }, [])
 
+  /** Native title + document.title: wizard uses app name only (no「设置向导」in title bar). */
+  useEffect(() => {
+    if (route === null || configExists === null) {
+      syncNativeWindowTitle(t('app.name'))
+      return
+    }
+    if (route === 'wizard') {
+      syncNativeWindowTitle(t('app.name'))
+      return
+    }
+    if (configExists) {
+      const panelTitles: Record<string, string> = {
+        '': t('shell.dashboard.title'),
+        dashboard: t('shell.dashboard.title'),
+        settings: t('shell.settings.title'),
+        about: t('shell.about.title'),
+        'llm-api': t('shell.dashboard.llmApi'),
+        skills: t('shell.skillsPanel.title'),
+        updates: t('shell.updates.title'),
+        'feishu-settings': t('shell.feishu.title'),
+      }
+      const segment = panelTitles[route] ?? t('shell.dashboard.title')
+      syncNativeWindowTitle(`${segment} - ${t('app.name')}`)
+    }
+  }, [route, configExists, t, i18n.language])
+
   if (typeof window.electronAPI === 'undefined') {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">OpenClaw Desktop</h1>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Preload script failed to load, internal communication is unavailable. Please try reinstalling or repackaging the app.
-        </p>
-        <p className="text-xs text-muted-foreground max-w-sm">
-          If debugging, check that `index.cjs` exists in `resources/app.asar(.unpacked)/out/preload/`.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight">{t('shell.error.preloadTitle')}</h1>
+        <p className="text-sm text-muted-foreground max-w-sm">{t('shell.error.preloadBody')}</p>
+        <p className="text-xs text-muted-foreground max-w-sm">{t('shell.error.preloadHint')}</p>
       </main>
     )
   }
 
-  if (route === null || configExists === null) return <LoadingView statusText="Checking configuration…" />
+  if (route === null || configExists === null) {
+    return <LoadingView statusText={t('shell.loading.checkingConfig')} />
+  }
   if (route === 'wizard') return <WizardLayout />
   if (configExists) {
-    const panel: EmbeddedPanel = (route === 'settings' || route === 'about' || route === 'dashboard' || route === 'llm-api' || route === 'skills' || route === 'updates') ? route : ''
-    return (
-      <EmbeddedShellLayout
-        activePanel={panel}
-        onPanelChange={handlePanelChange}
-      />
-    )
+    const panel: EmbeddedPanel =
+      route === 'settings' ||
+      route === 'about' ||
+      route === 'dashboard' ||
+      route === 'llm-api' ||
+      route === 'skills' ||
+      route === 'updates' ||
+      route === 'feishu-settings'
+        ? route
+        : ''
+    return <EmbeddedShellLayout activePanel={panel} onPanelChange={handlePanelChange} />
   }
-  return <LoadingView statusText="Checking configuration…" />
+  return <LoadingView statusText={t('shell.loading.checkingConfig')} />
 }
 
 export default App

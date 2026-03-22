@@ -3,6 +3,8 @@
  * Compatible with upstream OpenClaw configuration shape.
  */
 
+import type { ShellLocale } from './shell-locale.js'
+
 // ─── ShellConfig ─────────────────────────────────────────────────────────────
 
 /** Window position and size */
@@ -20,11 +22,15 @@ export type ShellTheme = 'system' | 'light' | 'dark'
 /** Update channel */
 export type UpdateChannel = 'stable' | 'beta'
 
+export type { ShellLocale }
+
 /** Desktop shell settings stored in %APPDATA%\OpenClaw Desktop\config.json */
 export interface ShellConfig {
   closeToTray: boolean
   autoStart: boolean
   theme: ShellTheme
+  /** Preferred UI language; omit to follow OS locale */
+  locale?: ShellLocale
   lastGatewayPort: number
   updateChannel: UpdateChannel
   /** After first-run wizard: whether main-window expand ran once */
@@ -100,6 +106,45 @@ export interface FeishuChannelConfig {
   appSecret?: string
   verificationToken?: string
   encryptKey?: string
+  /** DM access policy; desktop wizard defaults to `pairing` */
+  dmPolicy?: 'pairing' | 'open' | 'allowlist' | 'disabled'
+}
+
+/** Single pending Feishu DM pairing row (read from credentials/*.json) */
+export interface FeishuPairingRequest {
+  code: string
+  openId?: string
+  displayName?: string
+  createdAt?: string
+  expiresAt?: string
+}
+
+export interface FeishuApprovedSender {
+  openId: string
+}
+
+export interface PairingListPendingResult {
+  channel: 'feishu'
+  requests: FeishuPairingRequest[]
+}
+
+export interface PairingListApprovedResult {
+  channel: 'feishu'
+  senders: FeishuApprovedSender[]
+}
+
+/** Stable keys for Feishu pairing approve — renderer maps to i18n (shell.feishu.*). */
+export type PairingApproveMessageId = 'pairing_code_required' | 'local_approve_success'
+
+export interface PairingApproveResult {
+  ok: boolean
+  message?: string
+  /** When set, prefer localized shell.feishu strings over raw `message`. */
+  messageId?: PairingApproveMessageId
+  messageParams?: {
+    openId?: string
+    code?: string
+  }
 }
 
 /** Wizard Telegram channel (aligned with upstream TelegramConfig) */

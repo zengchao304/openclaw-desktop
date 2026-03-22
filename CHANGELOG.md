@@ -2,6 +2,21 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.2.0] - 2026-03-22
+
+### Added
+
+- **Feishu Access panel** — dedicated screen for Feishu credentials, pending pairing requests, pairing-code approval, and allowlist management (Settings, Dashboard, and tray entry points).
+- **Pairing IPC (main process)** — list/approve/remove Feishu pairing state via the bundled OpenClaw runtime from the desktop shell.
+- **Tray menu localization** — tray labels follow the selected shell/UI language.
+- **Installer license assets** — English, Simplified Chinese, and Traditional Chinese license texts for the NSIS flow.
+- **`pnpm i18n:zh-tw`** — script to regenerate Traditional Chinese locale strings from Simplified Chinese using OpenCC.
+
+### Changed
+
+- **Shell UX** — refinements across Dashboard, Settings, Wizard, About, Updates, Provider, and Skills views; expanded i18n keys (en, zh-CN, zh-TW, and other locales).
+- **Electron builder** — extra resource entries for multilingual licenses where configured.
+
 ## [0.1.1] - 2026-03-20
 
 ### Fixed

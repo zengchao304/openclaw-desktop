@@ -395,6 +395,7 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
         ...(f.appSecret ? { appSecret: f.appSecret } : {}),
         ...(f.verificationToken ? { verificationToken: f.verificationToken } : {}),
         ...(f.encryptKey ? { encryptKey: f.encryptKey } : {}),
+        dmPolicy: 'pairing',
       }
     }
     if (ch.telegram?.botToken?.trim()) {

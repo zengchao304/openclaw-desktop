@@ -2,29 +2,35 @@ import { Menu, Tray, app, nativeImage, shell } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { GatewayStatusValue } from '../../shared/types.js'
+import type { ShellLocale } from '../../shared/shell-locale.js'
 import { getInstallDir, getUserDataDir } from '../utils/paths.js'
+import { getTrayMenuStrings, type TrayMenuStrings } from './tray-i18n.js'
 
 export interface TrayManagerOptions {
   appName: string
+  /** Current shell UI locale (from ShellConfig + OS fallback) */
+  resolveTrayLocale: () => ShellLocale
   onOpenMainWindow: () => void
   onRestartGateway: () => void | Promise<void>
   onOpenSettings?: () => void
+  /** Feishu pairing / allowlist (shell route) */
+  onOpenFeishuSettings?: () => void
   onOpenAbout?: () => void
   onOpenUpdates?: () => void
   onQuit: () => void
 }
 
-function getGatewayStatusLabel(status: GatewayStatusValue): string {
+function gatewayStatusLabel(strings: TrayMenuStrings, status: GatewayStatusValue): string {
   switch (status) {
     case 'running':
-      return 'Gateway: Running'
+      return strings.gatewayRunning
     case 'starting':
-      return 'Gateway: Starting'
+      return strings.gatewayStarting
     case 'error':
-      return 'Gateway: Error'
+      return strings.gatewayError
     case 'stopped':
     default:
-      return 'Gateway: Stopped'
+      return strings.gatewayStopped
   }
 }
 
@@ -88,6 +94,11 @@ export class TrayManager {
     }
   }
 
+  /** Call when ShellConfig.locale changes so menu labels update. */
+  refreshMenu(): void {
+    this.rebuildMenu()
+  }
+
   destroy(): void {
     if (!this.tray || this.tray.isDestroyed()) {
       this.tray = null
@@ -102,15 +113,18 @@ export class TrayManager {
       return
     }
 
+    const locale = this.options.resolveTrayLocale()
+    const s = getTrayMenuStrings(locale)
+
     const template = [
       {
-        label: 'Open OpenClaw',
+        label: s.openApp,
         click: () => this.options.onOpenMainWindow(),
       },
       ...(this.updateAvailable
         ? [
             {
-              label: 'Update available',
+              label: s.updateAvailable,
               click: () => {
                 if (this.options.onOpenUpdates) {
                   this.options.onOpenUpdates()
@@ -123,46 +137,55 @@ export class TrayManager {
           ]
         : []),
       {
-        label: getGatewayStatusLabel(this.gatewayStatus),
+        label: gatewayStatusLabel(s, this.gatewayStatus),
         enabled: false,
       },
       {
-        label: 'Restart Gateway',
+        label: s.restartGateway,
         click: () => {
           void this.options.onRestartGateway()
         },
       },
       { type: 'separator' as const },
       {
-        label: 'Open config directory',
+        label: s.openConfigDir,
         click: () => {
           void shell.openPath(getUserDataDir())
         },
       },
       {
-        label: 'Settings',
-        visible: false,
-        click: () => {
-          if (this.options.onOpenSettings) {
-            this.options.onOpenSettings()
-            return
-          }
-          this.options.onOpenMainWindow()
-        },
+        label: s.settings,
+        submenu: [
+          {
+            label: s.settingsGeneral,
+            click: () => {
+              this.options.onOpenSettings?.()
+              this.options.onOpenMainWindow()
+            },
+          },
+          ...(this.options.onOpenFeishuSettings
+            ? [
+                {
+                  label: s.settingsFeishu,
+                  click: () => {
+                    this.options.onOpenFeishuSettings?.()
+                    this.options.onOpenMainWindow()
+                  },
+                } as const,
+              ]
+            : []),
+        ],
       },
       {
-        label: 'About',
+        label: s.about,
         click: () => {
-          if (this.options.onOpenAbout) {
-            this.options.onOpenAbout()
-            return
-          }
+          this.options.onOpenAbout?.()
           this.options.onOpenMainWindow()
         },
       },
       { type: 'separator' as const },
       {
-        label: 'Quit',
+        label: s.quit,
         click: () => this.options.onQuit(),
       },
     ]

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Settings,
   Info,
@@ -16,6 +17,7 @@ import { DashboardView } from './DashboardView'
 import { ProviderView } from './ProviderView'
 import { SkillsView } from './SkillsView'
 import { UpdateView } from './UpdateView'
+import { FeishuAccessView } from './FeishuAccessView'
 import type { GatewayStatus, GatewayStatusValue } from '../../shared/types'
 import { useUpdateNoticeStore } from '@/stores/update-store'
 
@@ -34,7 +36,15 @@ interface ErrorInfo {
   detail?: string
 }
 
-export type EmbeddedPanel = '' | 'settings' | 'about' | 'dashboard' | 'llm-api' | 'skills' | 'updates'
+export type EmbeddedPanel =
+  | ''
+  | 'settings'
+  | 'about'
+  | 'dashboard'
+  | 'llm-api'
+  | 'skills'
+  | 'updates'
+  | 'feishu-settings'
 
 export interface EmbeddedShellLayoutProps {
   activePanel: EmbeddedPanel
@@ -59,6 +69,7 @@ const DESKTOP_NAV_ITEMS: { id: EmbeddedPanel; label: string; icon: React.ReactNo
 ]
 
 export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShellLayoutProps) {
+  const { t } = useTranslation()
   const [gatewayView, setGatewayView] = useState<'loading' | 'error'>('loading')
   const [statusText, setStatusText] = useState('Gateway is starting…')
   const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null)
@@ -228,7 +239,12 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
   const renderPanelContent = () => {
     switch (activePanel) {
       case 'settings':
-        return <SettingsView onBack={() => onPanelChange('')} />
+        return (
+          <SettingsView
+            onBack={() => onPanelChange('')}
+            onOpenFeishuSettings={() => onPanelChange('feishu-settings')}
+          />
+        )
       case 'about':
         return <AboutView onBack={() => onPanelChange('')} />
       case 'dashboard':
@@ -238,6 +254,7 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
             onNavigateToLlmApi={() => handleNavigateToPanel('llm-api')}
             onNavigateToSkills={() => handleNavigateToPanel('skills')}
             onNavigateToUpdates={() => handleNavigateToPanel('updates')}
+            onNavigateToFeishuSettings={() => handleNavigateToPanel('feishu-settings')}
             updateAvailable={updateAvailable && !updateDismissed}
             updateVersion={updateInfo?.version}
             onDismissUpdateNotice={() => dismissUpdateNotice()}
@@ -257,6 +274,8 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
             onDismissUpdateNotice={() => dismissUpdateNotice()}
           />
         )
+      case 'feishu-settings':
+        return <FeishuAccessView onBack={() => onPanelChange('settings')} />
       default:
         return null
     }
@@ -301,7 +320,9 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
             </button>
             <span className="text-sm text-border">/</span>
             <span className="text-sm font-medium">
-              {DESKTOP_NAV_ITEMS.find(item => item.id === activePanel)?.label ?? activePanel}
+              {activePanel === 'feishu-settings'
+                ? t('shell.feishu.title')
+                : DESKTOP_NAV_ITEMS.find((item) => item.id === activePanel)?.label ?? activePanel}
             </span>
           </div>
           <div className="flex-1">

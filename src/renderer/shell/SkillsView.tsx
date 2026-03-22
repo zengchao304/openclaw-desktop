@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Puzzle,
   Search,
@@ -61,6 +62,7 @@ function isExtension(item: SkillRegistryItem | ExtensionRegistryItem): item is E
 }
 
 export function SkillsView({ onBack }: SkillsViewProps) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<TabType>('skills')
   const [skills, setSkills] = useState<SkillRegistryItem[]>([])
   const [extensions, setExtensions] = useState<ExtensionRegistryItem[]>([])
@@ -74,6 +76,10 @@ export function SkillsView({ onBack }: SkillsViewProps) {
   const [reloading, setReloading] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<{ id: string; message: string; type: 'success' | 'error' } | null>(null)
 
+  const tabSkillsLabel = t('shell.skillsPanel.tabSkills')
+  const tabExtensionsLabel = t('shell.skillsPanel.tabExtensions')
+  const currentTabLabel = tab === 'skills' ? tabSkillsLabel : tabExtensionsLabel
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -85,11 +91,11 @@ export function SkillsView({ onBack }: SkillsViewProps) {
       setSkills(skillsData)
       setExtensions(extensionsData)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load registry')
+      setError(e instanceof Error ? e.message : t('shell.skillsPanel.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadData()
@@ -101,10 +107,15 @@ export function SkillsView({ onBack }: SkillsViewProps) {
       await window.electronAPI.registryReload()
       await loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Reload failed')
+      setError(e instanceof Error ? e.message : t('shell.skillsPanel.reloadFailed'))
     } finally {
       setReloading(false)
     }
+  }
+
+  const showFeedback = (id: string, message: string, type: 'success' | 'error') => {
+    setActionFeedback({ id, message, type })
+    setTimeout(() => setActionFeedback(null), 3000)
   }
 
   const handleToggleSkill = async (item: SkillRegistryItem) => {
@@ -118,10 +129,16 @@ export function SkillsView({ onBack }: SkillsViewProps) {
         setSkills((prev) =>
           prev.map((s) => (s.id === item.id ? { ...s, enabled: !s.enabled } : s))
         )
-        showFeedback(item.id, `${item.name} ${!item.enabled ? 'enabled' : 'disabled'}`, 'success')
+        showFeedback(
+          item.id,
+          !item.enabled
+            ? t('shell.skillsPanel.itemEnabled', { name: item.name })
+            : t('shell.skillsPanel.itemDisabled', { name: item.name }),
+          'success'
+        )
       }
     } catch (e) {
-      showFeedback(item.id, e instanceof Error ? e.message : 'Toggle failed', 'error')
+      showFeedback(item.id, e instanceof Error ? e.message : t('shell.skillsPanel.toggleFailed'), 'error')
     } finally {
       setTogglingId(null)
     }
@@ -138,10 +155,16 @@ export function SkillsView({ onBack }: SkillsViewProps) {
         setExtensions((prev) =>
           prev.map((e) => (e.id === item.id ? { ...e, enabled: !e.enabled } : e))
         )
-        showFeedback(item.id, `${item.name} ${!item.enabled ? 'enabled' : 'disabled'}`, 'success')
+        showFeedback(
+          item.id,
+          !item.enabled
+            ? t('shell.skillsPanel.itemEnabled', { name: item.name })
+            : t('shell.skillsPanel.itemDisabled', { name: item.name }),
+          'success'
+        )
       }
     } catch (e) {
-      showFeedback(item.id, e instanceof Error ? e.message : 'Toggle failed', 'error')
+      showFeedback(item.id, e instanceof Error ? e.message : t('shell.skillsPanel.toggleFailed'), 'error')
     } finally {
       setTogglingId(null)
     }
@@ -149,26 +172,21 @@ export function SkillsView({ onBack }: SkillsViewProps) {
 
   const handleValidate = async (kind: 'skill' | 'extension', id: string) => {
     if (!detail) return
-    setDetail((prev) => prev ? { ...prev, validating: true } : null)
+    setDetail((prev) => (prev ? { ...prev, validating: true } : null))
     try {
       const result = await window.electronAPI.registryValidate({ kind, id })
-      setDetail((prev) => prev ? { ...prev, validation: result, validating: false } : null)
+      setDetail((prev) => (prev ? { ...prev, validation: result, validating: false } : null))
     } catch (e) {
       setDetail((prev) =>
         prev
           ? {
               ...prev,
-              validation: { ok: false, errors: [e instanceof Error ? e.message : 'Validation failed'] },
+              validation: { ok: false, errors: [e instanceof Error ? e.message : t('shell.skillsPanel.validationFailed')] },
               validating: false,
             }
           : null
       )
     }
-  }
-
-  const showFeedback = (id: string, message: string, type: 'success' | 'error') => {
-    setActionFeedback({ id, message, type })
-    setTimeout(() => setActionFeedback(null), 3000)
   }
 
   const openDetail = (kind: 'skill' | 'extension', item: SkillRegistryItem | ExtensionRegistryItem) => {
@@ -226,10 +244,10 @@ export function SkillsView({ onBack }: SkillsViewProps) {
 
   if (loading && skills.length === 0) {
     return (
-      <ShellLayout title="Skills & Extensions" onBack={onBackFn}>
+      <ShellLayout title={t('shell.skillsPanel.title')} onBack={onBackFn}>
         <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-          Loading registry…
+          {t('shell.skillsPanel.loadingRegistry')}
         </div>
       </ShellLayout>
     )
@@ -256,37 +274,45 @@ export function SkillsView({ onBack }: SkillsViewProps) {
             )}
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <dt className="text-muted-foreground">Status</dt>
+                <dt className="text-muted-foreground">{t('shell.skillsPanel.status')}</dt>
                 <dd className="flex items-center gap-1.5 mt-0.5">
                   {item.enabled ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5 text-green-500" aria-hidden />
-                      <span className="text-green-600 dark:text-green-400">Enabled</span>
+                      <span className="text-green-600 dark:text-green-400">{t('shell.skillsPanel.enabledLabel')}</span>
                     </>
                   ) : (
                     <>
                       <XCircle className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-                      <span className="text-muted-foreground">Disabled</span>
+                      <span className="text-muted-foreground">{t('shell.skillsPanel.disabledLabel')}</span>
                     </>
                   )}
                 </dd>
               </div>
               {item.version && (
                 <div>
-                  <dt className="text-muted-foreground">Version</dt>
+                  <dt className="text-muted-foreground">{t('shell.skillsPanel.version')}</dt>
                   <dd className="mt-0.5">{item.version}</dd>
                 </div>
               )}
               <div className="col-span-2">
-                <dt className="text-muted-foreground">Path</dt>
+                <dt className="text-muted-foreground">{t('shell.skillsPanel.path')}</dt>
                 <dd className="mt-0.5 font-mono text-xs break-all">{item.path}</dd>
               </div>
               {!isExtension(item) && item.requires && (
                 <div className="col-span-2">
-                  <dt className="text-muted-foreground">Requirements</dt>
+                  <dt className="text-muted-foreground">{t('shell.skillsPanel.requirements')}</dt>
                   <dd className="mt-0.5 text-xs">
-                    {item.requires.bins && <span>Bins: {item.requires.bins.join(', ')}</span>}
-                    {item.requires.env && <span className="ml-3">Env: {item.requires.env.join(', ')}</span>}
+                    {item.requires.bins && (
+                      <span>
+                        {t('shell.skillsPanel.binsPrefix')} {item.requires.bins.join(', ')}
+                      </span>
+                    )}
+                    {item.requires.env && (
+                      <span className="ml-3">
+                        {t('shell.skillsPanel.envPrefix')} {item.requires.env.join(', ')}
+                      </span>
+                    )}
                   </dd>
                 </div>
               )}
@@ -294,26 +320,26 @@ export function SkillsView({ onBack }: SkillsViewProps) {
                 <div className="col-span-2">
                   <dt className="text-muted-foreground flex items-center gap-1">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden />
-                    Conflict
+                    {t('shell.skillsPanel.conflict')}
                   </dt>
                   <dd className="mt-0.5 text-amber-600 dark:text-amber-400 text-xs">{item.conflict}</dd>
                 </div>
               )}
               {ext?.providers && ext.providers.length > 0 && (
                 <div className="col-span-2">
-                  <dt className="text-muted-foreground">Providers</dt>
+                  <dt className="text-muted-foreground">{t('shell.skillsPanel.providers')}</dt>
                   <dd className="mt-0.5 text-xs">{ext.providers.join(', ')}</dd>
                 </div>
               )}
               {ext?.tools && ext.tools.length > 0 && (
                 <div className="col-span-2">
-                  <dt className="text-muted-foreground">Tools</dt>
+                  <dt className="text-muted-foreground">{t('shell.skillsPanel.tools')}</dt>
                   <dd className="mt-0.5 text-xs">{ext.tools.join(', ')}</dd>
                 </div>
               )}
               {ext?.commands && ext.commands.length > 0 && (
                 <div className="col-span-2">
-                  <dt className="text-muted-foreground">Commands</dt>
+                  <dt className="text-muted-foreground">{t('shell.skillsPanel.commands')}</dt>
                   <dd className="mt-0.5 text-xs">{ext.commands.join(', ')}</dd>
                 </div>
               )}
@@ -321,7 +347,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
                 <div className="col-span-2">
                   <dt className="text-muted-foreground flex items-center gap-1">
                     <XCircle className="w-3.5 h-3.5 text-destructive" aria-hidden />
-                    Error
+                    {t('shell.skillsPanel.error')}
                   </dt>
                   <dd className="mt-0.5 text-destructive text-xs">{ext.error}</dd>
                 </div>
@@ -336,7 +362,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
               ) : (
                 <FileText className="w-4 h-4 mr-1" aria-hidden />
               )}
-              Validate
+              {t('shell.skillsPanel.validate')}
             </Button>
             <Button
               size="sm"
@@ -344,7 +370,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
               onClick={() => window.electronAPI.systemOpenPath(item.path)}
             >
               <FolderOpen className="w-4 h-4 mr-1" aria-hidden />
-              Open folder
+              {t('shell.skillsPanel.openFolder')}
             </Button>
           </div>
 
@@ -355,18 +381,18 @@ export function SkillsView({ onBack }: SkillsViewProps) {
                   ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20'
                   : 'border-destructive/50 bg-destructive/5'
               }`}
-              aria-label="Validation result"
+              aria-label={t('shell.skillsPanel.validationResultAria')}
             >
               <h3 className="text-sm font-medium flex items-center gap-2 mb-2">
                 {validation.ok ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-green-500" aria-hidden />
-                    Validation passed
+                    {t('shell.skillsPanel.validationPassed')}
                   </>
                 ) : (
                   <>
                     <XCircle className="w-4 h-4 text-destructive" aria-hidden />
-                    Validation failed
+                    {t('shell.skillsPanel.validationFailedTitle')}
                   </>
                 )}
               </h3>
@@ -395,7 +421,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
   const totalItems = tab === 'skills' ? skills : extensions
 
   return (
-    <ShellLayout title="Skills & Extensions" onBack={onBackFn}>
+    <ShellLayout title={t('shell.skillsPanel.title')} onBack={onBackFn}>
       <div className="flex flex-col gap-4 max-w-3xl">
         {error && (
           <div
@@ -434,7 +460,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
               }`}
             >
               <Puzzle className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" aria-hidden />
-              Skills ({skills.length})
+              {tabSkillsLabel} ({skills.length})
             </button>
             <button
               type="button"
@@ -448,7 +474,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
               }`}
             >
               <Package className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" aria-hidden />
-              Extensions ({extensions.length})
+              {tabExtensionsLabel} ({extensions.length})
             </button>
           </div>
           <Button
@@ -462,7 +488,7 @@ export function SkillsView({ onBack }: SkillsViewProps) {
             ) : (
               <RefreshCw className="w-4 h-4" aria-hidden />
             )}
-            <span className="ml-1.5">Reload</span>
+            <span className="ml-1.5">{t('shell.skillsPanel.reload')}</span>
           </Button>
         </div>
 
@@ -471,51 +497,53 @@ export function SkillsView({ onBack }: SkillsViewProps) {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden />
             <Input
-              placeholder={`Search ${tab}…`}
+              placeholder={t('shell.skillsPanel.searchPlaceholder', { tab: currentTabLabel })}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
-              aria-label={`Search ${tab}`}
+              aria-label={t('shell.skillsPanel.searchAria', { tab: currentTabLabel })}
             />
           </div>
           <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
-            <SelectTrigger className="w-36" aria-label="Filter by source">
+            <SelectTrigger className="w-36" aria-label={t('shell.skillsPanel.filterSourceAria')}>
               <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" aria-hidden />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All sources</SelectItem>
-              <SelectItem value="bundled">Bundled</SelectItem>
-              <SelectItem value="user">User</SelectItem>
+              <SelectItem value="all">{t('shell.skillsPanel.sourceAll')}</SelectItem>
+              <SelectItem value="bundled">{t('shell.skillsPanel.sourceBundled')}</SelectItem>
+              <SelectItem value="user">{t('shell.skillsPanel.sourceUser')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-36" aria-label="Filter by status">
+            <SelectTrigger className="w-36" aria-label={t('shell.skillsPanel.filterStatusAria')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All status</SelectItem>
-              <SelectItem value="enabled">Enabled</SelectItem>
-              <SelectItem value="disabled">Disabled</SelectItem>
-              <SelectItem value="error">Errors</SelectItem>
+              <SelectItem value="all">{t('shell.skillsPanel.statusAll')}</SelectItem>
+              <SelectItem value="enabled">{t('shell.skillsPanel.statusEnabled')}</SelectItem>
+              <SelectItem value="disabled">{t('shell.skillsPanel.statusDisabled')}</SelectItem>
+              <SelectItem value="error">{t('shell.skillsPanel.statusErrors')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* List */}
-        <section aria-label={`${tab} list`}>
+        <section aria-label={t('shell.skillsPanel.listAria', { tab: currentTabLabel })}>
           {currentItems.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-10 text-center">
               <Puzzle className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" aria-hidden />
               <p className="text-sm font-medium text-muted-foreground">
                 {totalItems.length === 0
-                  ? `No ${tab} found`
-                  : `No ${tab} match the current filters`}
+                  ? t('shell.skillsPanel.emptyNone', { tab: currentTabLabel })
+                  : t('shell.skillsPanel.emptyFiltered', { tab: currentTabLabel })}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {totalItems.length === 0
-                  ? `${tab === 'skills' ? 'Skills' : 'Extensions'} will appear here once detected in the OpenClaw installation.`
-                  : 'Try adjusting search or filter criteria.'}
+                  ? tab === 'skills'
+                    ? t('shell.skillsPanel.emptyHintNoneSkills')
+                    : t('shell.skillsPanel.emptyHintNoneExt')
+                  : t('shell.skillsPanel.emptyHintFiltered')}
               </p>
             </div>
           ) : (
@@ -540,7 +568,11 @@ export function SkillsView({ onBack }: SkillsViewProps) {
                             : handleToggleExtension(item as ExtensionRegistryItem)
                         }
                         disabled={isToggling}
-                        aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`}
+                        aria-label={
+                          item.enabled
+                            ? t('shell.skillsPanel.toggleDisableAria', { name: item.name })
+                            : t('shell.skillsPanel.toggleEnableAria', { name: item.name })
+                        }
                       >
                         {isToggling ? (
                           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" aria-hidden />
@@ -587,9 +619,12 @@ export function SkillsView({ onBack }: SkillsViewProps) {
 
         {/* Summary */}
         <p className="text-xs text-muted-foreground text-center pt-2">
-          Showing {currentItems.length} of {totalItems.length} {tab}
-          {' · '}
-          {totalItems.filter((i) => i.enabled).length} enabled
+          {t('shell.skillsPanel.summary', {
+            current: currentItems.length,
+            total: totalItems.length,
+            tab: currentTabLabel,
+            enabled: totalItems.filter((i) => i.enabled).length,
+          })}
         </p>
       </div>
     </ShellLayout>

@@ -25,6 +25,7 @@ import {
   IPC_SYSTEM_OPEN_LOG_DIR,
   IPC_SHELL_GET_VERSIONS,
   IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE,
+  IPC_SHELL_SET_WINDOW_TITLE,
   IPC_DIAGNOSTICS_EXPORT,
   IPC_PROVIDERS_LIST,
   IPC_PROVIDERS_SAVE_PROFILE,
@@ -63,6 +64,10 @@ import {
   IPC_LOGS_TAIL,
   IPC_BACKUP_CREATE,
   IPC_BACKUP_VERIFY,
+  IPC_PAIRING_LIST_PENDING,
+  IPC_PAIRING_LIST_APPROVED,
+  IPC_PAIRING_APPROVE,
+  IPC_PAIRING_REMOVE_APPROVED,
 } from '../../shared/ipc-channels.js'
 import { runPrestartCheck, exportDiagnostics, runDiagnostics, getDiagnosticsSummary } from '../diagnostics/index.js'
 import {
@@ -109,6 +114,12 @@ import { getLogAggregator } from '../diagnostics/log-aggregator.js'
 import { runBackupCreateCli, runBackupVerifyCli } from '../backup/index.js'
 import { syncLoginItemToSystem } from '../login-item/index.js'
 import { runConfigValidate } from '../config/index.js'
+import {
+  approveFeishuPairing,
+  listApprovedFeishuSenders,
+  listPendingFeishuPairing,
+  removeApprovedFeishuSender,
+} from '../pairing/index.js'
 
 export interface IpcResult<T = unknown> {
   success: boolean
@@ -130,6 +141,10 @@ export interface IpcHandlerDeps {
   resizeMainWindow?: (width: number, height: number, center?: boolean) => void
   /** Resize window for main shell (may grow beyond current size) */
   resizeForMainInterface?: () => void
+  /** Sync native window title from renderer */
+  setMainWindowTitle?: (title: string) => void
+  /** Rebuild tray menu (e.g. after ShellConfig.locale change) */
+  refreshTrayMenu?: () => void
 }
 
 function ok<T>(data: T): IpcResult<T> {
@@ -160,6 +175,12 @@ function wrapHandler(code: string, fn: (...args: unknown[]) => Promise<unknown> 
 }
 
 const ALLOWED_URL_PROTOCOLS = new Set(['http:', 'https:'])
+
+function assertFeishuPairingChannel(channel: unknown): asserts channel is 'feishu' {
+  if (channel !== 'feishu') {
+    throw new Error('Only Feishu pairing is supported in the desktop shell')
+  }
+}
 
 function validateExternalUrl(url: unknown): string {
   if (typeof url !== 'string' || url.length === 0) {
@@ -255,6 +276,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       deps.writeShellConfig(merged)
       if ('autoStart' in patch) {
         syncLoginItemToSystem(merged.autoStart)
+      }
+      if ('locale' in patch) {
+        deps.refreshTrayMenu?.()
       }
     }),
   )
@@ -354,6 +378,14 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE,
     wrapHandler('SHELL_RESIZE_FOR_MAIN_INTERFACE', () => {
       deps.resizeForMainInterface?.()
+    }),
+  )
+
+  ipcMain.handle(
+    IPC_SHELL_SET_WINDOW_TITLE,
+    wrapHandler('SHELL_SET_WINDOW_TITLE', (title: unknown) => {
+      if (typeof title !== 'string') throw new Error('title must be a string')
+      deps.setMainWindowTitle?.(title)
     }),
   )
 
@@ -785,6 +817,49 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     }),
   )
 
+  // ─── Feishu pairing (local credentials + CLI fallback) ─────────────────────
+  ipcMain.handle(
+    IPC_PAIRING_LIST_PENDING,
+    wrapHandler('PAIRING_LIST_PENDING', (payload: unknown) => {
+      const obj = validatePlainObject(payload, 'pairingListPending')
+      assertFeishuPairingChannel(obj.channel)
+      return listPendingFeishuPairing()
+    }),
+  )
+
+  ipcMain.handle(
+    IPC_PAIRING_LIST_APPROVED,
+    wrapHandler('PAIRING_LIST_APPROVED', (payload: unknown) => {
+      const obj = validatePlainObject(payload, 'pairingListApproved')
+      assertFeishuPairingChannel(obj.channel)
+      return listApprovedFeishuSenders()
+    }),
+  )
+
+  ipcMain.handle(
+    IPC_PAIRING_APPROVE,
+    wrapHandler('PAIRING_APPROVE', (payload: unknown) => {
+      const obj = validatePlainObject(payload, 'pairingApprove')
+      assertFeishuPairingChannel(obj.channel)
+      const code = typeof obj.code === 'string' ? obj.code : ''
+      const openId = typeof obj.openId === 'string' ? obj.openId : undefined
+      return approveFeishuPairing(code, openId)
+    }),
+  )
+
+  ipcMain.handle(
+    IPC_PAIRING_REMOVE_APPROVED,
+    wrapHandler('PAIRING_REMOVE_APPROVED', (payload: unknown) => {
+      const obj = validatePlainObject(payload, 'pairingRemoveApproved')
+      assertFeishuPairingChannel(obj.channel)
+      const openId = typeof obj.openId === 'string' ? obj.openId.trim() : ''
+      if (!openId) {
+        throw new Error('openId is required')
+      }
+      return removeApprovedFeishuSender(openId)
+    }),
+  )
+
   // ─── Logs (RPC proxy) ──────────────────────────────────────────────────────
   ipcMain.handle(
     IPC_LOGS_TAIL,
@@ -832,6 +907,7 @@ export function removeIpcHandlers(): void {
   ipcMain.removeHandler(IPC_SYSTEM_OPEN_LOG_DIR)
   ipcMain.removeHandler(IPC_SHELL_GET_VERSIONS)
   ipcMain.removeHandler(IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE)
+  ipcMain.removeHandler(IPC_SHELL_SET_WINDOW_TITLE)
   ipcMain.removeHandler(IPC_DIAGNOSTICS_EXPORT)
   ipcMain.removeHandler(IPC_DIAGNOSTICS_RUN)
   ipcMain.removeHandler(IPC_DIAGNOSTICS_SUMMARY)
@@ -863,6 +939,10 @@ export function removeIpcHandlers(): void {
   ipcMain.removeHandler(IPC_LOGS_TAIL)
   ipcMain.removeHandler(IPC_BACKUP_CREATE)
   ipcMain.removeHandler(IPC_BACKUP_VERIFY)
+  ipcMain.removeHandler(IPC_PAIRING_LIST_PENDING)
+  ipcMain.removeHandler(IPC_PAIRING_LIST_APPROVED)
+  ipcMain.removeHandler(IPC_PAIRING_APPROVE)
+  ipcMain.removeHandler(IPC_PAIRING_REMOVE_APPROVED)
   ipcMain.removeHandler(IPC_UPDATE_CHECK)
   ipcMain.removeHandler(IPC_UPDATE_DOWNLOAD_SHELL)
   ipcMain.removeHandler(IPC_UPDATE_INSTALL_SHELL)

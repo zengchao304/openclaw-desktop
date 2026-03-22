@@ -24,6 +24,7 @@ import {
   IPC_SYSTEM_OPEN_LOG_DIR,
   IPC_SHELL_GET_VERSIONS,
   IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE,
+  IPC_SHELL_SET_WINDOW_TITLE,
   IPC_DIAGNOSTICS_EXPORT,
   IPC_PROVIDERS_LIST,
   IPC_PROVIDERS_SAVE_PROFILE,
@@ -61,6 +62,10 @@ import {
   IPC_PLUGINS_UNINSTALL,
   IPC_BACKUP_CREATE,
   IPC_BACKUP_VERIFY,
+  IPC_PAIRING_LIST_PENDING,
+  IPC_PAIRING_LIST_APPROVED,
+  IPC_PAIRING_APPROVE,
+  IPC_PAIRING_REMOVE_APPROVED,
   IPC_GATEWAY_STATUS_CHANGE,
   IPC_GATEWAY_LOG,
   IPC_STREAM_GATEWAY_LOGS,
@@ -128,6 +133,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   systemOpenLogDir: () => invoke(IPC_SYSTEM_OPEN_LOG_DIR),
   shellGetVersions: () => invoke(IPC_SHELL_GET_VERSIONS),
   shellResizeForMainInterface: () => invoke(IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE),
+  shellSetWindowTitle: (title: string) => invoke(IPC_SHELL_SET_WINDOW_TITLE, title),
   diagnosticsExport: () => invoke<{ path: string; checksum: string }>(IPC_DIAGNOSTICS_EXPORT),
 
   providersList: () => invoke(IPC_PROVIDERS_LIST),
@@ -201,6 +207,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ),
   backupVerify: (archivePath: string) =>
     invoke<{ ok: boolean; archivePath?: string; message?: string }>(IPC_BACKUP_VERIFY, archivePath),
+
+  pairingListPending: (opts: { channel: 'feishu' }) =>
+    invoke<{ channel: 'feishu'; requests: Array<{ code: string; openId?: string; displayName?: string; createdAt?: string; expiresAt?: string }> }>(
+      IPC_PAIRING_LIST_PENDING,
+      opts,
+    ),
+  pairingListApproved: (opts: { channel: 'feishu' }) =>
+    invoke<{ channel: 'feishu'; senders: Array<{ openId: string }> }>(IPC_PAIRING_LIST_APPROVED, opts),
+  pairingApprove: (opts: { channel: 'feishu'; code: string; openId?: string }) =>
+    invoke<{ ok: boolean; message?: string }>(IPC_PAIRING_APPROVE, opts),
+  pairingRemoveApproved: (opts: { channel: 'feishu'; openId: string }) =>
+    invoke<{ ok: boolean }>(IPC_PAIRING_REMOVE_APPROVED, opts),
 
   // ─── Event subscriptions ─────────────────────────────────────────────────────
   onGatewayStatusChange: (callback: (status: unknown) => void) =>

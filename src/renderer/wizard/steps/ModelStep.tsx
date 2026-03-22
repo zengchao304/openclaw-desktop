@@ -287,6 +287,16 @@ export function ModelStep() {
         modelConfig.customBaseUrl?.trim())) &&
     (!requiresApiKey(modelConfig.provider) || modelConfig.apiKey.trim())
 
+  const getProviderOptionLabel = useCallback(
+    (p: ProviderInfo) => {
+      if (p.id === 'custom') {
+        return t('wizard.model.provider.customLabel')
+      }
+      return t(`wizard.model.providerNames.${p.id}`, { defaultValue: p.label })
+    },
+    [t],
+  )
+
   return (
     <div className="space-y-5 sm:space-y-6 max-w-2xl mx-auto">
       <header>
@@ -298,7 +308,7 @@ export function ModelStep() {
         {/* Provider */}
         <fieldset className="space-y-1.5">
           <label htmlFor="provider-select" className="text-sm font-medium">
-            {t('wizard.model.provider')} <span className="text-destructive">*</span>
+            {t('wizard.model.providerTitle')} <span className="text-destructive">*</span>
           </label>
           <Select
             value={modelConfig.provider}
@@ -310,7 +320,7 @@ export function ModelStep() {
             <SelectContent>
               {PROVIDERS.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.label}
+                  {getProviderOptionLabel(p)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -455,8 +465,9 @@ export function ModelStep() {
               setTestState({ status: 'idle', message: '' })
             }}
             placeholder={
-              PROVIDERS.find((p) => p.id === modelConfig.provider)
-                ?.placeholder ?? 'Enter API Key'
+              modelConfig.provider === 'custom'
+                ? t('wizard.model.provider.customPlaceholder')
+                : PROVIDERS.find((p) => p.id === modelConfig.provider)?.placeholder ?? 'Enter API Key'
             }
             autoComplete="off"
             disabled={authMode === 'oauth' || authMode === 'none'}

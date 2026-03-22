@@ -51,6 +51,9 @@ export interface GatewayHealthCheckResult {
  */
 const KUAE_DIRECT_NO_PROXY_HOSTS = ['coding-plan-endpoint.kuaecloud.net', '.kuaecloud.net'] as const
 
+/** Feishu / Lark API hosts — bypass broken HTTPS proxies where direct works */
+const FEISHU_DIRECT_NO_PROXY_HOSTS = ['open.feishu.cn', '.feishu.cn', 'open.larksuite.com', '.larksuite.com'] as const
+
 function mergeNoProxyList(existing: string | undefined, additions: readonly string[]): string {
   const parts = new Set<string>()
   for (const segment of (existing ?? '').split(/[\s,]+/)) {
@@ -63,15 +66,18 @@ function mergeNoProxyList(existing: string | undefined, additions: readonly stri
   return [...parts].join(',')
 }
 
-/** Append Kuae hosts to NO_PROXY / no_proxy while keeping HTTPS_PROXY etc. (Node fetch/undici). */
-function applyKuaeNoProxyBypass(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (env.OPENCLAW_SKIP_KUAE_NO_PROXY === '1' || env.OPENCLAW_SKIP_KUAE_NO_PROXY === 'true') {
-    return env
+/**
+ * Append direct-connection hosts to NO_PROXY / no_proxy (Node fetch/undici).
+ * Set OPENCLAW_SKIP_KUAE_NO_PROXY / OPENCLAW_SKIP_FEISHU_NO_PROXY to disable subsets.
+ */
+function applyOpenClawNoProxyBypass(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  let merged = [env.NO_PROXY, env.no_proxy].filter(Boolean).join(',')
+  if (env.OPENCLAW_SKIP_KUAE_NO_PROXY !== '1' && env.OPENCLAW_SKIP_KUAE_NO_PROXY !== 'true') {
+    merged = mergeNoProxyList(merged, KUAE_DIRECT_NO_PROXY_HOSTS)
   }
-  const merged = mergeNoProxyList(
-    [env.NO_PROXY, env.no_proxy].filter(Boolean).join(','),
-    KUAE_DIRECT_NO_PROXY_HOSTS,
-  )
+  if (env.OPENCLAW_SKIP_FEISHU_NO_PROXY !== '1' && env.OPENCLAW_SKIP_FEISHU_NO_PROXY !== 'true') {
+    merged = mergeNoProxyList(merged, FEISHU_DIRECT_NO_PROXY_HOSTS)
+  }
   return {
     ...env,
     NO_PROXY: merged,
@@ -107,7 +113,7 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}): Gat
     args,
     cwd: getInstallDir(),
     env: {
-      ...applyKuaeNoProxyBypass(withNodeInPath(process.env, nodePath)),
+      ...applyOpenClawNoProxyBypass(withNodeInPath(process.env, nodePath)),
       OPENCLAW_STATE_DIR: getUserDataDir(),
       OPENCLAW_CONFIG_PATH: path.join(getUserDataDir(), OPENCLAW_CONFIG_FILE),
       OPENCLAW_AGENT_DIR: path.join(getUserDataDir(), 'agents', 'main', 'agent'),

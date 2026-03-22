@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { ShellLayout } from './ShellLayout'
 import type { AppVersionInfo } from '../../shared/types'
@@ -25,17 +26,26 @@ function ExternalLinkIcon() {
   )
 }
 
-const VERSION_LABELS: { key: keyof AppVersionInfo; label: string }[] = [
-  { key: 'shell', label: 'Shell version' },
-  { key: 'electron', label: 'Electron' },
-  { key: 'node', label: 'Node.js' },
-  { key: 'openclaw', label: 'OpenClaw' },
-]
-
-
-export function AboutView({ onBack }: AboutViewProps = {}) {
+export function AboutView({ onBack }: AboutViewProps) {
+  const { t } = useTranslation()
   const handleBack = onBack ?? defaultNavigateBack
   const [versions, setVersions] = useState<AppVersionInfo | null>(null)
+
+  const versionLabels = useMemo(
+    () =>
+      (['shell', 'electron', 'node', 'openclaw'] as const).map((key) => ({
+        key,
+        label:
+          key === 'shell'
+            ? t('shell.about.shellVersion')
+            : key === 'electron'
+              ? t('shell.about.electronLabel')
+              : key === 'node'
+                ? t('shell.about.nodeLabel')
+                : t('shell.about.openclawLabel'),
+      })),
+    [t]
+  )
 
   useEffect(() => {
     window.electronAPI.shellGetVersions().then(setVersions).catch(() => {
@@ -48,38 +58,38 @@ export function AboutView({ onBack }: AboutViewProps = {}) {
   }
 
   return (
-    <ShellLayout title="About" onBack={handleBack}>
+    <ShellLayout title={t('shell.about.title')} onBack={handleBack}>
       <div className="flex flex-col items-center justify-center gap-8 min-h-[50vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
             <span className="text-2xl font-bold text-primary-foreground tracking-tight">OC</span>
           </div>
-          <h2 className="text-lg font-semibold tracking-tight">OpenClaw Desktop</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{t('shell.about.appNameTitle')}</h2>
         </div>
 
         {versions ? (
           <>
-            <p className="text-base font-medium font-mono" aria-label="Main version">
+            <p className="text-base font-medium font-mono" aria-label={t('shell.about.mainVersionAria')}>
               {formatMainVersion(versions)}
             </p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-              {VERSION_LABELS.map(({ key, label }) => (
-              <div key={key} className="contents">
-                <dt className="text-muted-foreground text-right">{label}</dt>
-                <dd className="font-mono">{versions[key]}</dd>
-              </div>
-            ))}
+              {versionLabels.map(({ key, label }) => (
+                <div key={key} className="contents">
+                  <dt className="text-muted-foreground text-right">{label}</dt>
+                  <dd className="font-mono">{versions[key]}</dd>
+                </div>
+              ))}
             </dl>
           </>
         ) : (
           <p className="text-sm text-muted-foreground" role="status">
-            Fetching version info…
+            {t('shell.about.fetchingVersions')}
           </p>
         )}
 
         <Button variant="outline" size="sm" onClick={handleOpenProject}>
           <ExternalLinkIcon />
-          View project on GitHub
+          {t('shell.about.viewOnGithub')}
         </Button>
       </div>
     </ShellLayout>

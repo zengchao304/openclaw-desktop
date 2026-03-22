@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { ShellConfig } from '../../shared/types.js'
-import { APP_NAME } from '../../shared/constants.js'
+import { getLocalizedShellWindowTitle, normalizeToShellLocale } from '../../shared/shell-locale.js'
 import { logError, logInfo, logWarn } from '../utils/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -149,6 +149,8 @@ export class WindowManager {
     }
     const iconPath = getWindowIconPath()
     const shouldCenter = windowBounds.x < 0 || windowBounds.y < 0
+    const initialLocale = shellConfig.locale ?? normalizeToShellLocale(app.getLocale())
+    const initialTitle = getLocalizedShellWindowTitle(initialLocale)
     const window = new BrowserWindow({
       ...(shouldCenter ? {} : { x: windowBounds.x, y: windowBounds.y }),
       width: Math.max(windowBounds.width, 800),
@@ -157,7 +159,7 @@ export class WindowManager {
       minHeight: 600,
       show: false,
       center: shouldCenter,
-      title: APP_NAME,
+      title: initialTitle,
       icon: iconPath ? nativeImage.createFromPath(iconPath) : undefined,
       webPreferences: {
         ...(preloadExists ? { preload: preloadPath } : {}),
@@ -194,7 +196,7 @@ export class WindowManager {
     const showLoadError = (title: string, detail: string) => {
       if (loadErrorShown) return
       loadErrorShown = true
-      const html = buildErrorHtml(title, detail)
+      const html = buildErrorHtml(title, detail, initialTitle)
       window.setBackgroundColor('#1a1a1a')
       const showNow = () => {
         if (!window.isDestroyed()) showWhenReady()
@@ -222,7 +224,7 @@ export class WindowManager {
         )} exists=${JSON.stringify(rendererCandidates.map((p) => fs.existsSync(p)))}`
       )
       const bootstrapHtml =
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${APP_NAME}</title></head><body style="margin:0;background:transparent;"></body></html>`
+        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(initialTitle)}</title></head><body style="margin:0;background:transparent;"></body></html>`
       void window
         .loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(bootstrapHtml))
         .then(() => {
@@ -315,27 +317,49 @@ export class WindowManager {
 
   /**
    * Load the shell renderer with a hash route (e.g. #settings, #about).
-   * Use when user clicks Settings/About from tray while Control UI is shown.
+   * When the shell is already loaded, only updates `location.hash` to avoid a full reload / white flash.
    */
   showShellRoute(hash: string): void {
     const window = this.mainWindow
     if (!window || window.isDestroyed()) return
     const safeHash = hash.startsWith('#') ? hash : `#${hash}`
+    const currentUrl = window.webContents.getURL()
+    const canPatchHash =
+      (currentUrl.startsWith('file:') && !currentUrl.startsWith('data:')) ||
+      (!!process.env.ELECTRON_RENDERER_URL && currentUrl.startsWith('http'))
+
+    if (canPatchHash) {
+      void window.webContents
+        .executeJavaScript(`window.location.hash = ${JSON.stringify(safeHash)}`)
+        .catch(() => {
+          this.loadShellUrlWithHash(window, safeHash)
+        })
+      this.showMainWindow()
+      return
+    }
+
+    this.loadShellUrlWithHash(window, safeHash)
+    this.showMainWindow()
+  }
+
+  private loadShellUrlWithHash(window: BrowserWindow, safeHash: string): void {
     if (process.env.ELECTRON_RENDERER_URL) {
       const base = process.env.ELECTRON_RENDERER_URL.replace(/#.*$/, '')
       void window.loadURL(`${base}${safeHash}`)
-    } else {
-      const rendererPath = getRendererIndexPath()
-      const fileUrl = pathToFileURL(rendererPath).href + safeHash
-      void window.loadURL(fileUrl)
+      return
     }
-    this.showMainWindow()
+    const rendererPath = getRendererIndexPath()
+    const fileUrl = pathToFileURL(rendererPath).href + safeHash
+    void window.loadURL(fileUrl)
   }
 
   showErrorPage(title: string, detail: string): void {
     const window = this.mainWindow
     if (!window || window.isDestroyed()) return
-    const html = buildErrorHtml(title, detail)
+    const shellConfig = this.readShellConfig()
+    const loc = shellConfig.locale ?? normalizeToShellLocale(app.getLocale())
+    const appTitle = getLocalizedShellWindowTitle(loc)
+    const html = buildErrorHtml(title, detail, appTitle)
     window.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)).catch(() => {})
   }
 
@@ -408,14 +432,24 @@ export class WindowManager {
       }
     })
   }
+
+  /** Sync native window title (e.g. after renderer i18n / route change). */
+  setMainWindowTitle(title: string): void {
+    const window = this.mainWindow
+    if (!window || window.isDestroyed()) return
+    const trimmed = title.trim()
+    if (!trimmed) return
+    window.setTitle(trimmed)
+  }
 }
 
 function escapeHtml(raw: string): string {
   return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function buildErrorHtml(title: string, detail: string): string {
+function buildErrorHtml(title: string, detail: string, appTitle: string): string {
   const escapedTitle = escapeHtml(title)
   const escaped = escapeHtml(detail).replace(/\n/g, '<br>')
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${APP_NAME}</title><style>body{font-family:system-ui;padding:2rem;max-width:640px;margin:0 auto;background:#1a1a1a;color:#eee;}h1{color:#ff6b6b;} .detail{background:#333;padding:1rem;overflow:auto;font-size:12px;white-space:pre-wrap;} .tip{margin-top:1.5rem;color:#888;font-size:14px;}</style></head><body><h1>${escapedTitle}</h1><div class="detail">${escaped}</div><p class="tip">Debug: Set OPENCLAW_DEVTOOLS=1 and restart the exe to open DevTools.</p></body></html>`
+  const docTitle = escapeHtml(appTitle)
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${docTitle}</title><style>body{font-family:system-ui;padding:2rem;max-width:640px;margin:0 auto;background:#1a1a1a;color:#eee;}h1{color:#ff6b6b;} .detail{background:#333;padding:1rem;overflow:auto;font-size:12px;white-space:pre-wrap;} .tip{margin-top:1.5rem;color:#888;font-size:14px;}</style></head><body><h1>${escapedTitle}</h1><div class="detail">${escaped}</div><p class="tip">Debug: Set OPENCLAW_DEVTOOLS=1 and restart the exe to open DevTools.</p></body></html>`
 }

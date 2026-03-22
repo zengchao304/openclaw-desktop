@@ -1,21 +1,37 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ShellLayout } from './ShellLayout'
 import type { ShellConfig, ShellTheme } from '../../shared/types'
+import {
+  setAppLocale,
+  SHELL_SUPPORTED_LOCALES,
+  SHELL_LOCALE_LABELS,
+  type ShellLocale,
+} from '../i18n'
+import { normalizeToShellLocale } from '../../shared/shell-locale'
 
 export interface SettingsViewProps {
   /** Back navigation when embedded in parent layout */
   onBack?: () => void
+  /** Open Feishu pairing / allowlist panel */
+  onOpenFeishuSettings?: () => void
 }
 
 function defaultNavigateBack() {
   window.location.hash = ''
 }
 
-const THEME_OPTIONS: { value: ShellTheme; label: string; icon: React.ReactNode }[] = [
+const THEME_OPTIONS: { value: ShellTheme; icon: React.ReactNode }[] = [
   {
     value: 'system',
-    label: 'System',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
         <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -26,7 +42,6 @@ const THEME_OPTIONS: { value: ShellTheme; label: string; icon: React.ReactNode }
   },
   {
     value: 'light',
-    label: 'Light',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
         <circle cx="12" cy="12" r="4" />
@@ -36,7 +51,6 @@ const THEME_OPTIONS: { value: ShellTheme; label: string; icon: React.ReactNode }
   },
   {
     value: 'dark',
-    label: 'Dark',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
@@ -83,7 +97,12 @@ function Toggle({ checked, onChange, id }: ToggleProps) {
   )
 }
 
-export function SettingsView({ onBack }: SettingsViewProps = {}) {
+function themeLabelKey(value: ShellTheme): `shell.settings.${'system' | 'light' | 'dark'}` {
+  return `shell.settings.${value}`
+}
+
+export function SettingsView({ onBack, onOpenFeishuSettings }: SettingsViewProps = {}) {
+  const { t, i18n } = useTranslation()
   const handleBack = onBack ?? defaultNavigateBack
   const [config, setConfig] = useState<ShellConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -121,11 +140,24 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
     [config],
   )
 
+  const effectiveLocale = useMemo((): ShellLocale => {
+    if (config?.locale) return config.locale
+    return normalizeToShellLocale(i18n.language)
+  }, [config?.locale, i18n.language])
+
+  const handleLanguageChange = useCallback(
+    async (next: ShellLocale) => {
+      await setAppLocale(next)
+      updateConfig({ locale: next })
+    },
+    [updateConfig],
+  )
+
   if (loading) {
     return (
-      <ShellLayout title="Settings" onBack={handleBack}>
+      <ShellLayout title={t('shell.settings.title')} onBack={handleBack}>
         <div className="flex items-center justify-center min-h-[40vh]" role="status">
-          <p className="text-sm text-muted-foreground">Loading settings…</p>
+          <p className="text-sm text-muted-foreground">{t('shell.settings.loading')}</p>
         </div>
       </ShellLayout>
     )
@@ -133,26 +165,24 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
 
   if (!config) {
     return (
-      <ShellLayout title="Settings" onBack={handleBack}>
+      <ShellLayout title={t('shell.settings.title')} onBack={handleBack}>
         <div className="flex items-center justify-center min-h-[40vh]" role="alert">
-          <p className="text-sm text-destructive">Failed to load settings</p>
+          <p className="text-sm text-destructive">{t('shell.settings.loadFailed')}</p>
         </div>
       </ShellLayout>
     )
   }
 
   return (
-    <ShellLayout title="Settings" onBack={handleBack}>
+    <ShellLayout title={t('shell.settings.title')} onBack={handleBack}>
       <div className="w-full max-w-md flex flex-col gap-8">
-        <section className="flex flex-col gap-6" aria-label="General settings">
+        <section className="flex flex-col gap-6" aria-label={t('shell.settings.generalSectionAria')}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
               <label htmlFor="close-to-tray" className="text-sm font-medium">
-                Minimize to tray when closing
+                {t('shell.settings.closeToTray')}
               </label>
-              <p className="text-xs text-muted-foreground">
-                App continues running in system tray after closing window
-              </p>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.closeToTrayDesc')}</p>
             </div>
             <Toggle
               id="close-to-tray"
@@ -164,11 +194,9 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
               <label htmlFor="auto-start" className="text-sm font-medium">
-                Start at login
+                {t('shell.settings.autoStart')}
               </label>
-              <p className="text-xs text-muted-foreground">
-                Launch OpenClaw when you sign in to Windows
-              </p>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.autoStartDesc')}</p>
             </div>
             <Toggle
               id="auto-start"
@@ -179,12 +207,36 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">Appearance theme</span>
-              <p className="text-xs text-muted-foreground">
-                Choose the display theme for the app
-              </p>
+              <span className="text-sm font-medium">{t('shell.settings.language')}</span>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.languageDesc')}</p>
             </div>
-            <div className="flex gap-2" role="radiogroup" aria-label="Theme selection">
+            <Select
+              value={effectiveLocale}
+              onValueChange={(v) => void handleLanguageChange(v as ShellLocale)}
+            >
+              <SelectTrigger
+                id="shell-language"
+                aria-label={t('shell.settings.languageSelectAria')}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SHELL_SUPPORTED_LOCALES.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {SHELL_LOCALE_LABELS[loc]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">{t('shell.settings.theme')}</span>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.themeDesc')}</p>
+            </div>
+            <div className="flex gap-2" role="radiogroup" aria-label={t('shell.settings.themeRadiogroupAria')}>
               {THEME_OPTIONS.map((opt) => (
                 <Button
                   key={opt.value}
@@ -196,7 +248,7 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
                   className="flex-1"
                 >
                   {opt.icon}
-                  {opt.label}
+                  {t(themeLabelKey(opt.value))}
                 </Button>
               ))}
             </div>
@@ -204,12 +256,10 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">Update channel</span>
-              <p className="text-xs text-muted-foreground">
-                Choose between stable releases or beta for early access
-              </p>
+              <span className="text-sm font-medium">{t('shell.settings.updateChannel')}</span>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.updateChannelDesc')}</p>
             </div>
-            <div className="flex gap-2" role="radiogroup" aria-label="Update channel">
+            <div className="flex gap-2" role="radiogroup" aria-label={t('shell.settings.updateChannelRadiogroupAria')}>
               <Button
                 variant={config.updateChannel === 'stable' ? 'default' : 'outline'}
                 size="sm"
@@ -217,7 +267,7 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
                 aria-checked={config.updateChannel === 'stable'}
                 onClick={() => updateConfig({ updateChannel: 'stable' })}
               >
-                Stable
+                {t('shell.settings.stable')}
               </Button>
               <Button
                 variant={config.updateChannel === 'beta' ? 'default' : 'outline'}
@@ -226,11 +276,23 @@ export function SettingsView({ onBack }: SettingsViewProps = {}) {
                 aria-checked={config.updateChannel === 'beta'}
                 onClick={() => updateConfig({ updateChannel: 'beta' })}
               >
-                Beta
+                {t('shell.settings.beta')}
               </Button>
             </div>
           </div>
         </section>
+
+        {onOpenFeishuSettings && (
+          <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" aria-label={t('shell.settings.feishuSection')}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">{t('shell.settings.feishuSection')}</span>
+              <p className="text-xs text-muted-foreground">{t('shell.settings.feishuSectionDesc')}</p>
+            </div>
+            <Button type="button" variant="secondary" className="w-fit" onClick={onOpenFeishuSettings}>
+              {t('shell.settings.openFeishuSettings')}
+            </Button>
+          </section>
+        )}
       </div>
     </ShellLayout>
   )

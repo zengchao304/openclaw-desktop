@@ -62,6 +62,9 @@ export const IPC_SHELL_GET_VERSIONS = 'shell:getVersions' as const
 /** Resize window for main shell + embedded Control UI */
 export const IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE = 'shell:resizeForMainInterface' as const
 
+/** Set main BrowserWindow title (sync with renderer i18n) */
+export const IPC_SHELL_SET_WINDOW_TITLE = 'shell:setWindowTitle' as const
+
 /** Export redacted diagnostics bundle */
 export const IPC_DIAGNOSTICS_EXPORT = 'diagnostics:export' as const
 
@@ -176,6 +179,18 @@ export const IPC_BACKUP_CREATE = 'backup:create' as const
 /** Backup verify */
 export const IPC_BACKUP_VERIFY = 'backup:verify' as const
 
+/** Pairing: list pending (Feishu) */
+export const IPC_PAIRING_LIST_PENDING = 'pairing:listPending' as const
+
+/** Pairing: list approved senders (Feishu allowlist) */
+export const IPC_PAIRING_LIST_APPROVED = 'pairing:listApproved' as const
+
+/** Pairing: approve by code */
+export const IPC_PAIRING_APPROVE = 'pairing:approve' as const
+
+/** Pairing: remove approved open_id */
+export const IPC_PAIRING_REMOVE_APPROVED = 'pairing:removeApproved' as const
+
 // ─── Events (ipcRenderer.on / webContents.send) ───────────────────────────────
 
 /** Gateway status changed */
@@ -216,6 +231,7 @@ export const IPC_INVOKE_CHANNELS = [
   IPC_SYSTEM_OPEN_LOG_DIR,
   IPC_SHELL_GET_VERSIONS,
   IPC_SHELL_RESIZE_FOR_MAIN_INTERFACE,
+  IPC_SHELL_SET_WINDOW_TITLE,
   IPC_DIAGNOSTICS_EXPORT,
   IPC_PROVIDERS_LIST,
   IPC_PROVIDERS_SAVE_PROFILE,
@@ -254,6 +270,10 @@ export const IPC_INVOKE_CHANNELS = [
   IPC_LOGS_TAIL,
   IPC_BACKUP_CREATE,
   IPC_BACKUP_VERIFY,
+  IPC_PAIRING_LIST_PENDING,
+  IPC_PAIRING_LIST_APPROVED,
+  IPC_PAIRING_APPROVE,
+  IPC_PAIRING_REMOVE_APPROVED,
 ] as const
 
 /** All event channels */

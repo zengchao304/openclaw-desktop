@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import {
   RefreshCw,
@@ -65,6 +66,7 @@ function formatEta(remainingBytes: number, bytesPerSecond: number): string {
 }
 
 export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes, onDismissUpdateNotice }: UpdateViewProps) {
+  const { t } = useTranslation()
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
   const [updateState, setUpdateState] = useState<CheckState>('idle')
   const [bundleResult, setBundleResult] = useState<BundleVerifyResult | null>(null)
@@ -89,12 +91,12 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
       setUpdateResult({
         hasUpdate: false,
         currentVersion: 'unknown',
-        error: e instanceof Error ? e.message : 'Check failed',
+        error: e instanceof Error ? e.message : t('shell.updates.fetchErrors.checkFailed'),
       })
     } finally {
       setUpdateState('done')
     }
-  }, [])
+  }, [t])
 
   const handleVerifyBundle = useCallback(async () => {
     setBundleState('checking')
@@ -106,13 +108,13 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
         ok: false,
         nodeExists: false,
         openclawExists: false,
-        missing: [e instanceof Error ? e.message : 'Verification failed'],
+        missing: [e instanceof Error ? e.message : t('shell.updates.fetchErrors.verificationFailed')],
         versions: { shell: 'unknown', electron: 'unknown', node: 'unknown', openclaw: 'unknown' },
       })
     } finally {
       setBundleState('done')
     }
-  }, [])
+  }, [t])
 
   const handlePrestartCheck = useCallback(async () => {
     setPrestartState('checking')
@@ -125,13 +127,13 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
         bundleOk: false,
         configExists: false,
         configParseable: false,
-        errors: [e instanceof Error ? e.message : 'Check failed'],
+        errors: [e instanceof Error ? e.message : t('shell.updates.fetchErrors.healthCheckFailed')],
         fixSuggestions: [],
       })
     } finally {
       setPrestartState('done')
     }
-  }, [])
+  }, [t])
 
   const handleDownloadAndInstall = useCallback(async () => {
     setInstallFlow('downloading')
@@ -206,17 +208,17 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
   const latestVersion = updateResult?.latestVersion ?? ''
 
   return (
-    <ShellLayout title="Updates & Maintenance" onBack={onBackFn}>
+    <ShellLayout title={t('shell.updates.title')} onBack={onBackFn}>
       <div className="flex flex-col gap-6 max-w-3xl w-full">
 
         {updateAvailable && updateVersion && updateState === 'idle' && (
-          <section className="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label="Update available notice">
+          <section className="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label={t('shell.updates.flow.updateAvailableNoticeAria')}>
             <div className="flex items-start gap-3">
               <ArrowUpCircle className="w-4 h-4 text-primary mt-0.5" aria-hidden />
               <div className="flex-1">
-                <p className="text-sm font-medium">Update available</p>
+                <p className="text-sm font-medium">{t('shell.updates.flow.updateAvailableTitle')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  A newer version is ready to install: <span className="font-mono">Shell v{updateVersion}</span>
+                  {t('shell.updates.flow.updateAvailableBody', { version: updateVersion })}
                 </p>
                 {updateNotes && (
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -226,33 +228,31 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
               </div>
               {onDismissUpdateNotice && (
                 <Button size="sm" variant="ghost" onClick={onDismissUpdateNotice}>
-                  Dismiss
+                  {t('shell.updates.flow.dismiss')}
                 </Button>
               )}
             </div>
           </section>
         )}
 
-        {/* Check for updates — single-column layout */}
-        <section className="rounded-lg border border-border bg-card p-5" aria-label="Check for updates">
+        <section className="rounded-lg border border-border bg-card p-5" aria-label={t('shell.updates.flow.checkSectionAria')}>
           <div className="flex items-center gap-2 mb-4">
             <ArrowUpCircle className="w-5 h-5 text-primary" aria-hidden />
-            <h2 className="text-base font-semibold">Check for Updates</h2>
+            <h2 className="text-base font-semibold">{t('shell.updates.checkForUpdates')}</h2>
           </div>
 
-          {/* Post-update validation (after restart) */}
           {postUpdateResult && postUpdateResult.ran && (
             <div className={`rounded-md border p-3 mb-4 ${postUpdateResult.ok ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'}`}>
               <div className="flex items-center gap-2 text-sm font-medium mb-1">
                 {postUpdateResult.ok ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-green-500" aria-hidden />
-                    Update completed successfully
+                    {t('shell.updates.flow.postUpdateSuccess')}
                   </>
                 ) : (
                   <>
                     <XCircle className="w-4 h-4 text-destructive" aria-hidden />
-                    Update completed with issues
+                    {t('shell.updates.flow.postUpdateIssues')}
                   </>
                 )}
               </div>
@@ -265,7 +265,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                 onClick={() => window.electronAPI.systemOpenExternal(RELEASES_URL)}
               >
                 <ExternalLink className="w-4 h-4 mr-1.5" aria-hidden />
-                Download previous version
+                {t('shell.updates.flow.downloadPreviousVersion')}
               </Button>
             </div>
           )}
@@ -273,11 +273,11 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
           {updateState === 'idle' && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-muted-foreground">
-                Check if a newer version of OpenClaw Desktop is available on GitHub.
+                {t('shell.updates.checkHint')}
               </p>
               <Button size="sm" onClick={handleCheckUpdate}>
                 <RefreshCw className="w-4 h-4 mr-1.5" aria-hidden />
-                Check now
+                {t('shell.updates.checkNow')}
               </Button>
             </div>
           )}
@@ -285,7 +285,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
           {updateState === 'checking' && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-              Checking for updates…
+              {t('shell.updates.flow.checkingUpdates')}
             </div>
           )}
 
@@ -295,42 +295,39 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                 <div className="flex items-start gap-2 text-sm">
                   <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" aria-hidden />
                   <div>
-                    <p className="font-medium">Unable to check for updates</p>
+                    <p className="font-medium">{t('shell.updates.flow.checkFailedTitle')}</p>
                     <p className="text-muted-foreground mt-1">{updateResult.error}</p>
                   </div>
                 </div>
               ) : hasUpdate ? (
                 <>
-                  {/* Current → available version */}
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground">
-                      Current: <span className="font-mono font-medium">{currentVersionDisplay}</span>
+                      {t('shell.updates.current')}: <span className="font-mono font-medium">{currentVersionDisplay}</span>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Available: <span className="font-mono font-medium text-primary">Shell v{latestVersion}</span>
+                      {t('shell.updates.latest')}: <span className="font-mono font-medium text-primary">Shell v{latestVersion}</span>
                     </p>
                     {updateResult.publishedAt && (
                       <p className="text-xs text-muted-foreground">
-                        Published: {new Date(updateResult.publishedAt).toLocaleDateString()}
+                        {t('shell.updates.published')}: {new Date(updateResult.publishedAt).toLocaleDateString()}
                       </p>
                     )}
                   </div>
 
-                  {/* Changelog (Markdown) */}
                   {updateResult.releaseNotes && (
                     <div className="rounded-md border border-border bg-muted/30 p-3 max-h-48 overflow-y-auto">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Changelog</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">{t('shell.updates.flow.changelog')}</p>
                       <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&_ul]:list-disc [&_ol]:list-decimal [&_pre]:whitespace-pre-wrap [&_pre]:bg-muted/50 [&_pre]:p-2 [&_pre]:rounded">
                         <ReactMarkdown>{updateResult.releaseNotes}</ReactMarkdown>
                       </div>
                     </div>
                   )}
 
-                  {/* Download progress */}
                   {installFlow === 'downloading' && (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Downloading…</span>
+                        <span className="text-muted-foreground">{t('shell.updates.flow.downloading')}</span>
                         <span className="font-mono">
                           {downloadProgress?.percent != null ? `${Math.round(downloadProgress.percent)}%` : '0%'}
                         </span>
@@ -361,37 +358,35 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                         </div>
                       )}
                       <Button size="sm" variant="ghost" onClick={handleCancelDownload}>
-                        Cancel
+                        {t('shell.updates.flow.cancel')}
                       </Button>
                     </div>
                   )}
 
-                  {/* Download done → install & restart */}
                   {installFlow === 'downloaded' && (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                         <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden />
-                        Download complete. Ready to install.
+                        {t('shell.updates.flow.downloadComplete')}
                       </div>
                       <Button size="sm" onClick={handleShowInstallConfirm}>
                         <RotateCcw className="w-4 h-4 mr-1.5" aria-hidden />
-                        Install & Restart
+                        {t('shell.updates.flow.installRestart')}
                       </Button>
                     </div>
                   )}
 
-                  {/* Install confirmation */}
                   {installFlow === 'confirming' && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-4 flex flex-col gap-3">
                       <p className="text-sm font-medium">
-                        Gateway will temporarily stop. Confirm restart?
+                        {t('shell.updates.flow.confirmGatewayStop')}
                       </p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={handleConfirmInstall}>
-                          Confirm & Restart
+                          {t('shell.updates.flow.confirmRestart')}
                         </Button>
                         <Button size="sm" variant="outline" onClick={handleCancelInstallConfirm}>
-                          Cancel
+                          {t('shell.updates.flow.cancel')}
                         </Button>
                       </div>
                     </div>
@@ -400,39 +395,37 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                   {installFlow === 'installing' && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                       <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-                      Installing and restarting…
+                      {t('shell.updates.flow.installingRestarting')}
                     </div>
                   )}
 
-                  {/* Failure + rollback hints */}
                   {installFlow === 'error' && (
                     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 flex flex-col gap-3">
                       <div className="flex items-start gap-2 text-sm">
                         <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" aria-hidden />
                         <div>
-                          <p className="font-medium text-destructive">Update failed</p>
-                          <p className="text-muted-foreground mt-1">{downloadError ?? 'Unknown error'}</p>
+                          <p className="font-medium text-destructive">{t('shell.updates.flow.updateFailedTitle')}</p>
+                          <p className="text-muted-foreground mt-1">{downloadError ?? t('shell.llmApi.unknownError')}</p>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        To rollback: download a previous installer from the releases page and reinstall. Your configuration will be preserved.
+                        {t('shell.updates.flow.rollbackHint')}
                       </p>
                       <Button size="sm" variant="outline" onClick={() => window.electronAPI.systemOpenExternal(RELEASES_URL)}>
                         <ExternalLink className="w-4 h-4 mr-1.5" aria-hidden />
-                        View releases
+                        {t('shell.updates.flow.viewReleases')}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => { setInstallFlow('idle'); setDownloadError(null) }}>
-                        Try again
+                        {t('shell.updates.flow.tryAgain')}
                       </Button>
                     </div>
                   )}
 
-                  {/* Initial: in-app download or external installer */}
                   {installFlow === 'idle' && (
                     <div className="flex flex-col gap-2">
                       <Button size="sm" onClick={handleDownloadAndInstall}>
                         <Download className="w-4 h-4 mr-1.5" aria-hidden />
-                        Download & Install
+                        {t('shell.updates.flow.downloadAndInstall')}
                       </Button>
                       <div className="flex gap-2">
                         {updateResult.downloadUrl && (
@@ -442,7 +435,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                             onClick={() => window.electronAPI.systemOpenExternal(updateResult.downloadUrl!)}
                           >
                             <Download className="w-4 h-4 mr-1.5" aria-hidden />
-                            Download installer manually
+                            {t('shell.updates.flow.downloadInstallerManually')}
                           </Button>
                         )}
                         {updateResult.releaseUrl && (
@@ -452,7 +445,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                             onClick={() => window.electronAPI.systemOpenExternal(updateResult.releaseUrl!)}
                           >
                             <ExternalLink className="w-4 h-4 mr-1.5" aria-hidden />
-                            View release
+                            {t('shell.updates.viewRelease')}
                           </Button>
                         )}
                       </div>
@@ -462,28 +455,27 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
               ) : (
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-hidden />
-                  <span>You are running the latest version ({currentVersionDisplay}).</span>
+                  <span>{t('shell.updates.upToDate', { version: currentVersionDisplay })}</span>
                 </div>
               )}
               <Button size="sm" variant="ghost" className="w-fit" onClick={handleCheckUpdate}>
                 <RefreshCw className="w-4 h-4 mr-1.5" aria-hidden />
-                Check again
+                {t('shell.updates.checkAgain')}
               </Button>
             </div>
           )}
         </section>
 
-        {/* Bundle verification — separate section */}
-        <section className="rounded-lg border border-border bg-card p-5" aria-label="Bundle verification">
+        <section className="rounded-lg border border-border bg-card p-5" aria-label={t('shell.updates.bundleIntegrity')}>
           <div className="flex items-center gap-2 mb-4">
             <Package className="w-5 h-5 text-primary" aria-hidden />
-            <h2 className="text-base font-semibold">Bundle Integrity</h2>
+            <h2 className="text-base font-semibold">{t('shell.updates.bundleIntegrity')}</h2>
           </div>
 
           {bundleState === 'checking' && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-              Verifying bundle…
+              {t('shell.updates.verifying')}
             </div>
           )}
 
@@ -491,73 +483,72 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
             <div className="flex flex-col gap-3">
               <div className={`flex items-center gap-2 text-sm font-medium ${bundleResult.ok ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
                 <StatusIcon ok={bundleResult.ok} />
-                {bundleResult.ok ? 'Bundle is complete and valid' : 'Bundle has issues'}
+                {bundleResult.ok ? t('shell.updates.bundleOk') : t('shell.updates.bundleIssues')}
               </div>
 
-              <p className="text-sm font-mono text-muted-foreground" aria-label="Bundle version">
+              <p className="text-sm font-mono text-muted-foreground" aria-label={t('shell.updates.flow.bundleVersionAria')}>
                 {formatMainVersion(bundleResult.versions)}
               </p>
 
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2">
                   <StatusIcon ok={bundleResult.nodeExists} />
-                  <span>Node.js runtime</span>
+                  <span>{t('shell.updates.nodeRuntime')}</span>
                 </div>
                 <span className="text-muted-foreground font-mono text-xs">{bundleResult.versions.node}</span>
                 <div className="flex items-center gap-2">
                   <StatusIcon ok={bundleResult.openclawExists} />
-                  <span>OpenClaw package</span>
+                  <span>{t('shell.updates.openclawPackage')}</span>
                 </div>
                 <span className="text-muted-foreground font-mono text-xs">{bundleResult.versions.openclaw}</span>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-hidden />
-                  <span>Electron shell</span>
+                  <span>{t('shell.updates.electronShell')}</span>
                 </div>
                 <span className="text-muted-foreground font-mono text-xs">{bundleResult.versions.electron}</span>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-hidden />
-                  <span>App version</span>
+                  <span>{t('shell.updates.appVersion')}</span>
                 </div>
                 <span className="text-muted-foreground font-mono text-xs">{bundleResult.versions.shell}</span>
               </dl>
 
               {bundleResult.missing.length > 0 && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                  <p className="text-sm font-medium text-destructive mb-1">Missing files:</p>
+                  <p className="text-sm font-medium text-destructive mb-1">{t('shell.updates.missingFiles')}</p>
                   <ul className="text-xs text-destructive space-y-0.5">
                     {bundleResult.missing.map((m, i) => (
                       <li key={i}>• {m}</li>
                     ))}
                   </ul>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Reinstalling the application should resolve missing files.
+                    {t('shell.updates.reinstallHint')}
                   </p>
                 </div>
               )}
 
               <Button size="sm" variant="ghost" className="w-fit" onClick={handleVerifyBundle}>
                 <RefreshCw className="w-4 h-4 mr-1.5" aria-hidden />
-                Re-verify
+                {t('shell.updates.reVerify')}
               </Button>
             </div>
           )}
         </section>
 
-        {/* System health check */}
-        <section className="rounded-lg border border-border bg-card p-5" aria-label="System health check">
+        <section className="rounded-lg border border-border bg-card p-5" aria-label={t('shell.updates.healthCheck')}>
           <div className="flex items-center gap-2 mb-4">
             <Shield className="w-5 h-5 text-primary" aria-hidden />
-            <h2 className="text-base font-semibold">System Health Check</h2>
+            <h2 className="text-base font-semibold">{t('shell.updates.healthCheck')}</h2>
           </div>
 
           {prestartState === 'idle' && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-muted-foreground">
-                Run a comprehensive health check including bundle integrity, configuration validity, and service readiness.
+                {t('shell.updates.healthCheckHint')}
               </p>
               <Button size="sm" variant="outline" onClick={handlePrestartCheck}>
                 <HardDrive className="w-4 h-4 mr-1.5" aria-hidden />
-                Run health check
+                {t('shell.updates.runHealthCheck')}
               </Button>
             </div>
           )}
@@ -565,7 +556,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
           {prestartState === 'checking' && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-              Running health check…
+              {t('shell.updates.runningCheck')}
             </div>
           )}
 
@@ -573,29 +564,29 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
             <div className="flex flex-col gap-3">
               <div className={`flex items-center gap-2 text-sm font-medium ${prestartResult.ok ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
                 <StatusIcon ok={prestartResult.ok} />
-                {prestartResult.ok ? 'All checks passed' : 'Issues detected'}
+                {prestartResult.ok ? t('shell.updates.allPassed') : t('shell.updates.issuesDetected')}
               </div>
 
               <dl className="grid grid-cols-1 gap-2 text-sm">
                 <div className="flex items-center gap-2">
                   <StatusIcon ok={prestartResult.bundleOk} />
-                  <span>Bundle integrity</span>
+                  <span>{t('shell.updates.bundleIntegrityCheck')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusIcon ok={prestartResult.configExists} />
-                  <span>Configuration file exists</span>
+                  <span>{t('shell.updates.configExists')}</span>
                 </div>
                 {prestartResult.configExists && (
                   <div className="flex items-center gap-2">
                     <StatusIcon ok={prestartResult.configParseable} />
-                    <span>Configuration is valid</span>
+                    <span>{t('shell.updates.configValid')}</span>
                   </div>
                 )}
               </dl>
 
               {prestartResult.errors.length > 0 && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                  <p className="text-sm font-medium text-destructive mb-1">Errors:</p>
+                  <p className="text-sm font-medium text-destructive mb-1">{t('shell.updates.errorsHeading')}</p>
                   <ul className="text-xs text-destructive space-y-0.5">
                     {prestartResult.errors.map((err, i) => (
                       <li key={i}>• {err}</li>
@@ -606,7 +597,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
 
               {prestartResult.fixSuggestions.length > 0 && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3">
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-1">Suggestions:</p>
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-1">{t('shell.updates.suggestions')}</p>
                   <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5">
                     {prestartResult.fixSuggestions.map((s, i) => (
                       <li key={i}>• {s}</li>
@@ -618,7 +609,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={handlePrestartCheck}>
                   <RefreshCw className="w-4 h-4 mr-1.5" aria-hidden />
-                  Re-check
+                  {t('shell.updates.reCheck')}
                 </Button>
                 <Button
                   size="sm"
@@ -626,31 +617,30 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
                   onClick={() => window.electronAPI.systemOpenLogDir()}
                 >
                   <ExternalLink className="w-4 h-4 mr-1.5" aria-hidden />
-                  Open log directory
+                  {t('shell.updates.openLogDir')}
                 </Button>
               </div>
             </div>
           )}
         </section>
 
-        {/* Repair guidance */}
-        <section className="rounded-lg border border-border bg-card p-5" aria-label="Repair guidance">
+        <section className="rounded-lg border border-border bg-card p-5" aria-label={t('shell.updates.repairRollback')}>
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle className="w-5 h-5 text-amber-500" aria-hidden />
-            <h2 className="text-base font-semibold">Repair & Rollback</h2>
+            <h2 className="text-base font-semibold">{t('shell.updates.repairRollback')}</h2>
           </div>
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
-              <p className="font-medium text-foreground mb-1">Reinstall</p>
-              <p>If bundle integrity checks fail, download the latest installer from the GitHub releases page and reinstall. Your configuration and data will be preserved.</p>
+              <p className="font-medium text-foreground mb-1">{t('shell.updates.reinstall')}</p>
+              <p>{t('shell.updates.reinstallDesc')}</p>
             </div>
             <div>
-              <p className="font-medium text-foreground mb-1">Reset configuration</p>
-              <p>If configuration is corrupt, delete the configuration file and restart the app. The setup wizard will run again to create a fresh configuration.</p>
+              <p className="font-medium text-foreground mb-1">{t('shell.updates.resetConfig')}</p>
+              <p>{t('shell.updates.resetConfigDesc')}</p>
             </div>
             <div>
-              <p className="font-medium text-foreground mb-1">Rollback</p>
-              <p>To rollback to a previous version, download an older installer from the GitHub releases page. Previous releases are always available for download.</p>
+              <p className="font-medium text-foreground mb-1">{t('shell.updates.rollback')}</p>
+              <p>{t('shell.updates.rollbackDesc')}</p>
             </div>
             <Button
               size="sm"
@@ -658,7 +648,7 @@ export function UpdateView({ onBack, updateAvailable, updateVersion, updateNotes
               onClick={() => window.electronAPI.systemOpenExternal(RELEASES_URL)}
             >
               <ExternalLink className="w-4 h-4 mr-1.5" aria-hidden />
-              View all releases
+              {t('shell.updates.viewAllReleases')}
             </Button>
           </div>
         </section>

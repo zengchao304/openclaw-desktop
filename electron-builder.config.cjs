@@ -143,6 +143,12 @@ module.exports = {
     oneClick: false,
     perMachine: false,
     allowToChangeInstallationDirectory: true,
+    // 安装程序启动时显示语言选择（向导 UI 多语言）
+    displayLanguageSelector: true,
+    multiLanguageInstaller: true,
+    installerLanguages: ['en_US', 'zh_CN', 'zh_TW'],
+    // 许可协议页固定为英文单文件（须为 UTF-8 带 BOM，NSIS 才能正确显示）
+    license: 'resources/installer/license.txt',
     // Use zip container for faster extraction on large bundled resources.
     useZip: fastInstallerMode,
     // Differential package is not used in our current release flow.
@@ -150,7 +156,6 @@ module.exports = {
     installerIcon: iconIcoPath,
     uninstallerIcon: iconIcoPath,
     installerSidebar: 'resources/installer/installer-sidebar.bmp',
-    license: 'resources/installer/license.txt',
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
     shortcutName: 'OpenClaw Desktop',

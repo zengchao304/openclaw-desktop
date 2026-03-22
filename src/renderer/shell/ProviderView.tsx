@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Key,
   Plus,
@@ -27,18 +28,19 @@ export interface ProviderViewProps {
   onBack?: () => void
 }
 
-function formatTestMessage(msg: string | undefined): string {
-  if (!msg) return 'Unknown error'
+function formatTestMessage(msg: string | undefined, t: (key: string) => string): string {
+  if (!msg) return t('shell.llmApi.unknownError')
   if (msg.toLowerCase().includes('401') || msg.toLowerCase().includes('403') || msg.toLowerCase().includes('unauthorized'))
-    return 'Authentication failed. Check API key.'
+    return t('shell.llmApi.authFailed')
   if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit'))
-    return 'Rate limit reached. Try again later.'
+    return t('shell.llmApi.rateLimit')
   if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('econnrefused'))
-    return 'Network error. Check connectivity.'
+    return t('shell.llmApi.networkErrorMsg')
   return msg.length > 120 ? `${msg.slice(0, 117)}...` : msg
 }
 
 export function ProviderView({ onBack }: ProviderViewProps) {
+  const { t } = useTranslation()
   const [data, setData] = useState<ProvidersListResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,11 +60,11 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       setData(res)
       setDefaultPrimary(res.modelDefaults?.primary ?? '')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : t('shell.llmApi.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -86,14 +88,14 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       const res = await window.electronAPI.providersTest(cfg)
       if (res.ok) {
         setTestState('ok')
-        setTestMessage('Connection successful')
+        setTestMessage(t('shell.llmApi.connectionSuccess'))
       } else {
         setTestState('fail')
-        setTestMessage(formatTestMessage(res.message))
+        setTestMessage(formatTestMessage(res.message, t))
       }
     } catch (e) {
       setTestState('fail')
-      setTestMessage(e instanceof Error ? e.message : 'Test failed')
+      setTestMessage(e instanceof Error ? e.message : t('shell.llmApi.testFailed'))
     }
   }
 
@@ -116,7 +118,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       setNewProfile({ profileId: '', provider: '' as ModelProvider, apiKey: '' })
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t('shell.llmApi.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -127,7 +129,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       await window.electronAPI.providersDeleteProfile({ profileId })
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delete failed')
+      setError(e instanceof Error ? e.message : t('shell.llmApi.deleteFailed'))
     }
   }
 
@@ -138,7 +140,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       setImportResult({ imported: 0, errors: [] })
       setTimeout(() => setImportResult(null), 2000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Export failed')
+      setError(e instanceof Error ? e.message : t('shell.llmApi.exportFailed'))
     }
   }
 
@@ -150,7 +152,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       setImportJson('')
       void load()
     } catch (e) {
-      setImportResult({ imported: 0, errors: [e instanceof Error ? e.message : 'Import failed'] })
+      setImportResult({ imported: 0, errors: [e instanceof Error ? e.message : t('shell.llmApi.importFailed')] })
     }
   }
 
@@ -161,7 +163,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
       await window.electronAPI.providersSetModelDefaults({ primary: defaultPrimary.trim() })
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Update failed')
+      setError(e instanceof Error ? e.message : t('shell.llmApi.updateFailed'))
     } finally {
       setSaving(false)
     }
@@ -174,16 +176,16 @@ export function ProviderView({ onBack }: ProviderViewProps) {
 
   if (loading && !data) {
     return (
-      <ShellLayout title="LLM API" onBack={onBackFn}>
+      <ShellLayout title={t('shell.nav.llmApi')} onBack={onBackFn}>
         <p className="text-sm text-muted-foreground" role="status">
-          Loading providers and profiles…
+          {t('shell.llmApi.loading')}
         </p>
       </ShellLayout>
     )
   }
 
   return (
-    <ShellLayout title="LLM API" onBack={onBackFn}>
+    <ShellLayout title={t('shell.nav.llmApi')} onBack={onBackFn}>
       <div className="flex flex-col gap-6 max-w-2xl">
         {error && (
           <div
@@ -195,27 +197,27 @@ export function ProviderView({ onBack }: ProviderViewProps) {
         )}
 
         {/* Default model */}
-        <section className="rounded-lg border border-border bg-card p-4" aria-label="Default model">
+        <section className="rounded-lg border border-border bg-card p-4" aria-label={t('shell.llmApi.defaultModelAria')}>
           <div className="flex items-center gap-2 mb-3">
             <Key className="w-4 h-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-medium">Default model</h2>
+            <h2 className="text-sm font-medium">{t('shell.llmApi.defaultModelSection')}</h2>
           </div>
           <div className="flex gap-2">
             <Input
               value={defaultPrimary}
               onChange={(e) => setDefaultPrimary(e.target.value)}
-              placeholder="e.g. anthropic/claude-sonnet-4-5"
+              placeholder={t('shell.llmApi.defaultModelPlaceholder')}
               className="font-mono text-sm"
             />
             <Button size="sm" onClick={handleSetDefault} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : 'Set'}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : t('shell.llmApi.set')}
             </Button>
           </div>
         </section>
 
         {/* Providers list */}
-        <section className="rounded-lg border border-border bg-card p-4" aria-label="Providers">
-          <h2 className="text-sm font-medium mb-3">Providers</h2>
+        <section className="rounded-lg border border-border bg-card p-4" aria-label={t('shell.llmApi.providersAria')}>
+          <h2 className="text-sm font-medium mb-3">{t('shell.llmApi.providersSection')}</h2>
           {data?.providers && data.providers.length > 0 ? (
             <ul className="space-y-2">
               {data.providers.map((p) => (
@@ -225,19 +227,19 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                 >
                   <span className="font-medium">{p.providerId}</span>
                   <span className="text-xs text-muted-foreground">
-                    {p.baseUrl ?? 'default'} · {p.hasApiKey ? 'Key set' : 'No key'}
+                    {p.baseUrl ?? t('shell.llmApi.defaultEndpoint')} · {p.hasApiKey ? t('shell.llmApi.keySet') : t('shell.llmApi.noKey')}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No providers configured yet.</p>
+            <p className="text-sm text-muted-foreground">{t('shell.llmApi.noProviders')}</p>
           )}
         </section>
 
         {/* Auth profiles */}
-        <section className="rounded-lg border border-border bg-card p-4" aria-label="Auth profiles">
-          <h2 className="text-sm font-medium mb-3">Auth profiles</h2>
+        <section className="rounded-lg border border-border bg-card p-4" aria-label={t('shell.llmApi.authProfilesAria')}>
+          <h2 className="text-sm font-medium mb-3">{t('shell.llmApi.authProfilesSection')}</h2>
           {data?.profiles && data.profiles.length > 0 ? (
             <ul className="space-y-2">
               {data.profiles.map((prof) => (
@@ -251,14 +253,14 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {prof.hasKey ? 'Key set' : 'No key'}
+                      {prof.hasKey ? t('shell.llmApi.keySet') : t('shell.llmApi.noKey')}
                     </span>
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       onClick={() => handleDeleteProfile(prof.profileId)}
-                      aria-label={`Delete ${prof.profileId}`}
+                      aria-label={t('shell.llmApi.deleteProfileAria', { id: prof.profileId })}
                     >
                       <Trash2 className="w-4 h-4" aria-hidden />
                     </Button>
@@ -267,14 +269,14 @@ export function ProviderView({ onBack }: ProviderViewProps) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No profiles yet. Add one below.</p>
+            <p className="text-sm text-muted-foreground">{t('shell.llmApi.noProfiles')}</p>
           )}
 
           <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-2">Add profile</p>
+            <p className="text-xs text-muted-foreground mb-2">{t('shell.llmApi.addProfile')}</p>
             <div className="flex flex-wrap gap-2">
               <Input
-                placeholder="Profile ID"
+                placeholder={t('shell.llmApi.profileIdPlaceholder')}
                 value={newProfile.profileId}
                 onChange={(e) => setNewProfile((p) => ({ ...p, profileId: e.target.value }))}
                 className="w-32"
@@ -284,7 +286,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                 onValueChange={(v) => setNewProfile((p) => ({ ...p, provider: (v || '') as ModelProvider }))}
               >
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Provider" />
+                  <SelectValue placeholder={t('shell.llmApi.providerPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {PROVIDER_OPTIONS.map((opt) => (
@@ -296,22 +298,22 @@ export function ProviderView({ onBack }: ProviderViewProps) {
               </Select>
               <Input
                 type="password"
-                placeholder="API Key"
+                placeholder={t('shell.llmApi.apiKeyPlaceholder')}
                 value={newProfile.apiKey}
                 onChange={(e) => setNewProfile((p) => ({ ...p, apiKey: e.target.value }))}
                 className="w-48"
               />
               <Button size="sm" onClick={handleSaveProfile} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Plus className="w-4 h-4" aria-hidden />}
-                Add
+                {t('shell.llmApi.add')}
               </Button>
             </div>
           </div>
         </section>
 
         {/* Test connection */}
-        <section className="rounded-lg border border-border bg-card p-4" aria-label="Test connection">
-          <h2 className="text-sm font-medium mb-3">Test connection</h2>
+        <section className="rounded-lg border border-border bg-card p-4" aria-label={t('shell.llmApi.testConnectionAria')}>
+          <h2 className="text-sm font-medium mb-3">{t('shell.llmApi.testConnectionSection')}</h2>
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-2">
               <Select
@@ -325,7 +327,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                 }
               >
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Provider" />
+                  <SelectValue placeholder={t('shell.llmApi.providerPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {PROVIDER_OPTIONS.map((opt) => (
@@ -338,13 +340,13 @@ export function ProviderView({ onBack }: ProviderViewProps) {
               {testForm.provider === 'custom' ? (
                 <>
                   <Input
-                    placeholder="Provider ID"
+                    placeholder={t('shell.llmApi.providerIdPlaceholder')}
                     value={customProviderId}
                     onChange={(e) => setCustomProviderId(e.target.value)}
                     className="w-32"
                   />
                   <Input
-                    placeholder="Base URL"
+                    placeholder={t('shell.llmApi.baseUrlPlaceholder')}
                     value={customBaseUrl}
                     onChange={(e) => setCustomBaseUrl(e.target.value)}
                     className="w-48"
@@ -358,7 +360,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                   disabled={!testForm.provider}
                 >
                   <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Model (preset)" />
+                    <SelectValue placeholder={t('shell.llmApi.modelPresetPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {testModelOpts.map((m) => (
@@ -370,14 +372,14 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                 </Select>
               ) : null}
               <Input
-                placeholder={testModelOpts.length > 0 ? 'Or custom model ID' : 'Model ID'}
+                placeholder={testModelOpts.length > 0 ? t('shell.llmApi.orCustomModelId') : t('shell.llmApi.modelIdPlaceholder')}
                 value={testForm.modelId}
                 onChange={(e) => setTestForm((f) => ({ ...f, modelId: e.target.value }))}
                 className="w-48"
               />
               <Input
                 type="password"
-                placeholder="API Key"
+                placeholder={t('shell.llmApi.apiKeyPlaceholder')}
                 value={testForm.apiKey}
                 onChange={(e) => setTestForm((f) => ({ ...f, apiKey: e.target.value }))}
                 className="w-48"
@@ -396,7 +398,7 @@ export function ProviderView({ onBack }: ProviderViewProps) {
                 {testState === 'testing' ? (
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                 ) : (
-                  'Test'
+                  t('shell.llmApi.test')
                 )}
               </Button>
             </div>
@@ -416,28 +418,28 @@ export function ProviderView({ onBack }: ProviderViewProps) {
         </section>
 
         {/* Import / Export */}
-        <section className="rounded-lg border border-border bg-card p-4" aria-label="Import and export">
-          <h2 className="text-sm font-medium mb-3">Import / Export</h2>
+        <section className="rounded-lg border border-border bg-card p-4" aria-label={t('shell.llmApi.importExportAria')}>
+          <h2 className="text-sm font-medium mb-3">{t('shell.llmApi.importExportSection')}</h2>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleExport}>
               <Copy className="w-4 h-4 mr-1" aria-hidden />
-              Export (copy)
+              {t('shell.llmApi.exportCopy')}
             </Button>
           </div>
           <div className="mt-3">
             <textarea
               className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="Paste JSON to import…"
+              placeholder={t('shell.llmApi.pasteJsonPlaceholder')}
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
             />
             <Button size="sm" className="mt-2" onClick={handleImport} disabled={!importJson.trim()}>
               <Upload className="w-4 h-4 mr-1" aria-hidden />
-              Import
+              {t('shell.llmApi.import')}
             </Button>
             {importResult && (
               <p className="text-sm mt-2">
-                Imported {importResult.imported}.{' '}
+                {t('shell.llmApi.importedCount', { count: importResult.imported })}{' '}
                 {importResult.errors.length > 0 && (
                   <span className="text-destructive">{importResult.errors.join(', ')}</span>
                 )}

@@ -100,6 +100,25 @@ function migrateLegacyProviderConfig(config: OpenClawConfig): { config: OpenClaw
   return { config: next, changed: true }
 }
 
+/** Ensure Feishu channel keeps explicit `dmPolicy: pairing` so DMs use pairing flow (not implicit open). */
+function migrateFeishuDmPolicy(config: OpenClawConfig): { config: OpenClawConfig; changed: boolean } {
+  const feishu = config.channels?.feishu
+  if (!feishu || typeof feishu !== 'object' || Array.isArray(feishu)) {
+    return { config, changed: false }
+  }
+  const f = feishu as Record<string, unknown>
+  if (f.dmPolicy !== undefined && f.dmPolicy !== null && String(f.dmPolicy).trim() !== '') {
+    return { config, changed: false }
+  }
+  const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
+  const nf = next.channels?.feishu as Record<string, unknown> | undefined
+  if (!nf || typeof nf !== 'object' || Array.isArray(nf)) {
+    return { config, changed: false }
+  }
+  nf.dmPolicy = 'pairing'
+  return { config: next, changed: true }
+}
+
 /**
  * Read OpenClaw main config.
  * - Missing file → {}
@@ -114,11 +133,20 @@ export function readOpenClawConfig(): OpenClawConfig {
     const raw = fs.readFileSync(configPath, 'utf-8')
     const parsed = JSON5.parse(raw)
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const migrated = migrateLegacyProviderConfig(parsed as OpenClawConfig)
-      if (migrated.changed) {
+      let cfg = parsed as OpenClawConfig
+      const migratedProviders = migrateLegacyProviderConfig(cfg)
+      cfg = migratedProviders.config
+      const migratedFeishu = migrateFeishuDmPolicy(cfg)
+      cfg = migratedFeishu.config
+      if (migratedProviders.changed || migratedFeishu.changed) {
         try {
-          writeOpenClawConfig(migrated.config)
-          console.info('[config] Migrated legacy provider fields in openclaw.json')
+          writeOpenClawConfig(cfg)
+          if (migratedProviders.changed) {
+            console.info('[config] Migrated legacy provider fields in openclaw.json')
+          }
+          if (migratedFeishu.changed) {
+            console.info('[config] Migrated Feishu dmPolicy to pairing in openclaw.json')
+          }
         } catch (err) {
           console.warn(
             '[config] Failed to persist migrated openclaw config:',
@@ -126,7 +154,7 @@ export function readOpenClawConfig(): OpenClawConfig {
           )
         }
       }
-      return migrated.config
+      return cfg
     }
     return {}
   } catch (err) {

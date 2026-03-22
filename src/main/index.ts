@@ -1,4 +1,4 @@
-import { app, dialog, Menu, session, screen } from 'electron'
+import { app, dialog, Menu, Notification, session, screen } from 'electron'
 import path from 'node:path'
 import { IPC_GATEWAY_LOG, IPC_GATEWAY_STATUS_CHANGE, IPC_STREAM_GATEWAY_LOGS, IPC_UPDATE_AVAILABLE } from '../shared/ipc-channels.js'
 import { APP_NAME, DEFAULT_GATEWAY_PORT, OPENCLAW_CONFIG_FILE } from '../shared/constants.js'
@@ -25,6 +25,8 @@ import { migrateAuthProfilesIfNeeded } from './wizard/index.js'
 import { syncLoginItemToSystem, getLoginItemOpenAtLogin, clearLoginItem } from './login-item/index.js'
 import { patchGatewayResponseHeaders } from './security/gateway-response-headers.js'
 import { rewriteGatewayRequestUrlWithToken } from './security/gateway-request-auth.js'
+import { listPendingFeishuPairing } from './pairing/index.js'
+import { resolveTrayLocale, getFeishuPairingNotificationStrings, formatFeishuPairingBody } from './tray/tray-i18n.js'
 
 process.on('uncaughtException', (error) => {
   if ((error as NodeJS.ErrnoException).code === 'EPIPE') return
@@ -32,6 +34,7 @@ process.on('uncaughtException', (error) => {
   dialog.showErrorBox('Unexpected Error', error.stack ?? error.message)
 })
 let isQuitting = false
+let feishuPairingNotifyTimer: ReturnType<typeof setInterval> | null = null
 const windowManager = new WindowManager({
   defaultGatewayPort: DEFAULT_GATEWAY_PORT,
   readShellConfig,
@@ -41,8 +44,10 @@ const windowManager = new WindowManager({
 
 const trayManager = new TrayManager({
   appName: APP_NAME,
+  resolveTrayLocale: () => resolveTrayLocale(readShellConfig),
   onOpenMainWindow: () => windowManager.showMainWindow(),
   onOpenSettings: () => windowManager.showShellRoute('#settings'),
+  onOpenFeishuSettings: () => windowManager.showShellRoute('#feishu-settings'),
   onOpenAbout: () => windowManager.showShellRoute('#about'),
   onOpenUpdates: () => windowManager.showShellRoute('#updates'),
   onRestartGateway: async () => {
@@ -91,9 +96,18 @@ async function cleanupBeforeQuit(): Promise<void> {
 
   // 5. Stop background update polling
   stopBackgroundUpdateCheck()
+
+  if (feishuPairingNotifyTimer) {
+    clearInterval(feishuPairingNotifyTimer)
+    feishuPairingNotifyTimer = null
+  }
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('OpenClaw.Desktop')
+  }
+
   // Uninstaller: --clear-login-item (called from NSIS) removes login item
   if (process.argv.includes('--clear-login-item')) {
     clearLoginItem()
@@ -226,6 +240,12 @@ app.whenReady().then(() => {
         win.center()
       }
     },
+    setMainWindowTitle: (title: string) => {
+      windowManager.setMainWindowTitle(title)
+    },
+    refreshTrayMenu: () => {
+      trayManager.refreshMenu()
+    },
   })
 
   // 4. Main window (packaged: loadFile from asar.unpacked renderer to avoid blank screen)
@@ -267,6 +287,32 @@ app.whenReady().then(() => {
 
   trayManager.create()
   trayManager.setGatewayStatus(gatewayManager.getStatus().status)
+
+  const notifiedFeishuPairingCodes = new Set<string>()
+  const pollFeishuPairingNotifications = () => {
+    void listPendingFeishuPairing()
+      .then(({ requests }) => {
+        for (const row of requests) {
+          const code = row.code.trim().toUpperCase()
+          if (!code || notifiedFeishuPairingCodes.has(code)) continue
+          notifiedFeishuPairingCodes.add(code)
+          if (!Notification.isSupported()) continue
+          const loc = resolveTrayLocale(readShellConfig)
+          const notifCopy = getFeishuPairingNotificationStrings(loc)
+          const n = new Notification({
+            title: notifCopy.title,
+            body: formatFeishuPairingBody(notifCopy.bodyTemplate, row.code),
+          })
+          n.on('click', () => {
+            windowManager.showShellRoute('#feishu-settings')
+          })
+          n.show()
+        }
+      })
+      .catch(() => {})
+  }
+  feishuPairingNotifyTimer = setInterval(pollFeishuPairingNotifications, 12_000)
+  pollFeishuPairingNotifications()
 
   // 5. Pre-start checks (bundle + config)
   const prestartCheck = runPrestartCheck()

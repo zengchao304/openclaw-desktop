@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import {
   useWizardStore,
   WIZARD_STEPS,
@@ -6,12 +8,25 @@ import {
 } from '@/stores/wizard-store'
 import { StepIndicator } from './StepIndicator'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { WelcomeStep } from './steps/WelcomeStep'
 import { ModelStep } from './steps/ModelStep'
 import { ChannelStep } from './steps/ChannelStep'
 import { GatewayStep } from './steps/GatewayStep'
 import { CompleteStep } from './steps/CompleteStep'
 import { ChevronLeft, ChevronRight, SkipForward, Rocket } from 'lucide-react'
+import {
+  setAppLocale,
+  SHELL_SUPPORTED_LOCALES,
+  SHELL_LOCALE_LABELS,
+  type ShellLocale,
+} from '@/i18n'
 
 const STEP_COMPONENTS = [
   WelcomeStep,
@@ -21,10 +36,27 @@ const STEP_COMPONENTS = [
   CompleteStep,
 ] as const
 
+function initialLocaleFromI18n(): ShellLocale {
+  const lng = i18n.language
+  return (SHELL_SUPPORTED_LOCALES as readonly string[]).includes(lng)
+    ? (lng as ShellLocale)
+    : 'en'
+}
+
 export function WizardLayout() {
   const { t } = useTranslation()
   const store = useWizardStore()
   const { currentStep, completedSteps, deployPhase } = store
+
+  const [uiLocale, setUiLocale] = useState<ShellLocale>(initialLocaleFromI18n)
+
+  useEffect(() => {
+    void window.electronAPI?.shellGetConfig?.().then((cfg) => {
+      if (cfg.locale && (SHELL_SUPPORTED_LOCALES as readonly string[]).includes(cfg.locale)) {
+        setUiLocale(cfg.locale)
+      }
+    })
+  }, [])
 
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === WIZARD_STEP_COUNT - 1
@@ -36,23 +68,40 @@ export function WizardLayout() {
 
   return (
     <div className="h-screen flex flex-col select-none bg-background">
-      {/* Top header with branding and step indicator */}
       <header className="shrink-0 border-b border-border bg-muted/20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-3">
-          {/* Branding */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-              <span className="text-xs font-bold text-primary-foreground tracking-tight">
-                OC
-              </span>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-4">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 shrink-0 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+                <span className="text-xs font-bold text-primary-foreground tracking-tight">
+                  OC
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold leading-tight tracking-tight">
+                {t('wizard.setupWizard')}
+              </h1>
             </div>
-            <div>
-              <h1 className="text-sm font-semibold leading-none tracking-tight">{t('wizard.appName')}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">{t('wizard.setupWizard')}</p>
-            </div>
+            <Select
+              value={uiLocale}
+              onValueChange={(v) => {
+                const next = v as ShellLocale
+                setUiLocale(next)
+                void setAppLocale(next)
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[200px] shrink-0" aria-label={t('shell.settings.language')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SHELL_SUPPORTED_LOCALES.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {SHELL_LOCALE_LABELS[loc]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Horizontal step indicator */}
           <StepIndicator
             steps={WIZARD_STEPS}
             currentStep={currentStep}
@@ -62,14 +111,12 @@ export function WizardLayout() {
         </div>
       </header>
 
-      {/* Main content area */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <StepContent />
         </div>
       </main>
 
-      {/* Bottom navigation bar */}
       <footer className="shrink-0 border-t border-border bg-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div>
