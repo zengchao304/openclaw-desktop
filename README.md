@@ -5,10 +5,8 @@
 <h1 align="center">OpenClaw Desktop</h1>
 
 <p align="center">
-  Community-maintained Windows desktop app and installer for
-  <a href="https://github.com/openclaw/openclaw">OpenClaw</a>.<br />
-  Native GUI, bundled runtime, guided setup wizard, and in-app updates —
-  everything you need to run OpenClaw on Windows.
+  <strong>Official-style Windows installer &amp; desktop app for <a href="https://github.com/openclaw/openclaw">OpenClaw</a>.</strong><br />
+  One-click install, bundled runtime, guided setup — run OpenClaw AI agents on Windows without touching a terminal.
 </p>
 
 <p align="center">
@@ -17,9 +15,6 @@
   </a>
   <a href="https://github.com/agentkernel/openclaw-desktop/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/agentkernel/openclaw-desktop/ci.yml?style=flat-square&label=ci" alt="CI" />
-  </a>
-  <a href="https://github.com/agentkernel/openclaw-desktop/actions/workflows/release.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/agentkernel/openclaw-desktop/release.yml?style=flat-square&label=release" alt="Release workflow" />
   </a>
   <a href="https://github.com/agentkernel/openclaw-desktop/releases">
     <img src="https://img.shields.io/github/downloads/agentkernel/openclaw-desktop/total?style=flat-square&color=16a34a&label=downloads" alt="Downloads" />
@@ -33,44 +28,79 @@
   <img src="resources/demo.gif" alt="OpenClaw Desktop Demo running on Windows" width="720" />
 </p>
 
+<p align="center">
+  ⭐ &nbsp;If this project helps you, <strong>please give it a star</strong> — it takes 2 seconds and means a lot!&nbsp; ⭐
+</p>
+
 ---
 
 **Language:** English · [简体中文](./README.zh-CN.md)
 
 ---
 
-## Overview
+## What is this?
 
-`OpenClaw Desktop` packages the OpenClaw runtime into a normal Windows install experience. Download one `.exe`, finish a setup wizard, configure your provider and channel, and run OpenClaw from a native desktop shell — no manual wiring required.
+**OpenClaw Desktop** packages the OpenClaw runtime into a standard Windows install experience. Download one `.exe`, finish a setup wizard, and run OpenClaw from a native desktop shell — no manual wiring, no terminal required.
 
-Built for users who want:
+If you've been searching for *how to install OpenClaw on Windows*, *how to run OpenClaw locally*, or an **OpenClaw Windows installer** with a GUI, this is it.
 
-- A Windows-first installer and GUI for OpenClaw
-- Bundled Node.js and OpenClaw runtime (no global install needed)
-- Guided provider, channel, and gateway setup
-- Built-in updates via GitHub Releases
-- Desktop-native Feishu pairing and allowlist management
+## Quick Start
+
+1. Download the latest installer from [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
+2. Run `OpenClaw-Setup-0.1.1.exe`
+3. Finish the setup wizard (provider → channel → gateway)
+4. Launch from Start Menu or Desktop shortcut
+
+**System:** Windows 10/11 x64 · ~350 MB free space · Internet for API calls
 
 ## What's New in v0.1.1
 
-- **Feishu Settings** — Feishu credentials, DM pairing, and allowlist are now managed inside the app. Open it from **Settings**, the **Dashboard**, or the **tray menu**.
-- **Desktop approval flow** — Pending Feishu requests are approved directly in the app. When only a pairing code is available, Desktop falls back to the bundled OpenClaw runtime.
-- **Runtime update** — Bundled OpenClaw updated to `2026.3.13`.
-- **Kuae proxy fix** — When the gateway inherits `HTTP(S)_PROXY`, Desktop now merges `NO_PROXY` for `coding-plan-endpoint.kuaecloud.net` and `.kuaecloud.net` so Kuae traffic bypasses HTTPS proxies that break TLS.
+- **Feishu Settings** — manage credentials, DM pairing, and allowlist inside the app (open from **Settings**, **Dashboard**, or **tray menu**)
+- **Desktop approval flow** — approve pending Feishu requests without touching the CLI; falls back to the bundled OpenClaw runtime when using a pairing code
+- **Runtime update** — bundled OpenClaw updated to `2026.3.13`
+- **Kuae proxy fix** — automatically merges `NO_PROXY` for Kuae endpoints when the gateway inherits an HTTPS proxy, preventing TLS failures
 
-Full history: [CHANGELOG.md](CHANGELOG.md)
+Full changelog: [CHANGELOG.md](CHANGELOG.md)
+
+## Features
+
+| | |
+|---|---|
+| 🔽 **One-click installer** | Native Windows `.exe` installer — no `npm install` or system-wide Node.js needed |
+| ⚡ **Bundled runtime** | Ships with portable Node.js + OpenClaw so first launch is instant |
+| 🧙 **Guided setup wizard** | Step-by-step configuration for model provider, channel, and gateway |
+| 🔄 **In-app updates** | Built-in updater via GitHub Releases; rollback to any previous version |
+| 🪟 **Native Windows shell** | Start Menu, Desktop shortcut, system tray, and auto-start support |
+| 🌐 **50+ providers** | OpenAI, Claude, Gemini, DeepSeek, Kuae, and more |
+| 💬 **Multi-channel** | Telegram, Discord, Slack, WhatsApp, Feishu, and more |
+| 🌍 **Multi-language UI** | English, 简体中文, 繁體中文, 日本語, 한국어, Español, Français |
+| 🔐 **Feishu pairing & allowlist** | Approve DM users, manage senders, add `open_id` — all inside the app |
+
+## Ecosystem
+
+```
+         OpenClaw
+             |
+    ┌────────┴────────┐
+    │                 │
+  Desktop           GUI
+    │            Plugins
+Installer          ...
+```
+
+OpenClaw Desktop is a **community-maintained Windows distribution** for the OpenClaw ecosystem. Part of the OpenClaw ecosystem — not affiliated with the core project.
 
 ## Download
 
-**Primary download:** [GitHub Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
+| | |
+|---|---|
+| **Release** | `v0.1.1` |
+| **Installer** | `OpenClaw-Setup-0.1.1.exe` |
+| **Platform** | Windows 10/11 x64 |
+| **Includes** | Electron shell, portable Node.js, bundled OpenClaw |
+| **Extras** | SHA-256 checksum, `latest.yml` for in-app updates |
 
-| Item | Value |
-| --- | --- |
-| Release | `v0.1.1` |
-| Installer | `OpenClaw-Setup-0.1.1.exe` |
-| Platform | Windows 10/11 x64 |
-| Includes | Electron shell, bundled Node.js, bundled OpenClaw |
-| Extras | SHA-256 checksum, `latest.yml` for in-app updates |
+**→ [github.com/agentkernel/openclaw-desktop/releases/latest](https://github.com/agentkernel/openclaw-desktop/releases/latest)**
 
 ## Screenshots
 
@@ -78,86 +108,29 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 | --- | --- | --- |
 | <img src="resources/screenshot-installer-user-scope.png" alt="Installer" width="260" /> | <img src="resources/screenshot-setup-wizard.png" alt="Setup Wizard" width="260" /> | <img src="resources/screenshot-gateway-dashboard.png" alt="Dashboard" width="260" /> |
 
-## Quick Start
-
-1. Download the latest installer from [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest).
-2. Run `OpenClaw-Setup-0.1.1.exe`.
-3. Finish the installer and launch `OpenClaw Desktop`.
-4. Complete the first-run setup for your model provider, channel, and gateway.
-5. Start using OpenClaw from the desktop shell.
-
-**System requirements:** Windows 10/11 x64 · ~350 MB free disk space · Internet connection for API calls and update checks
-
-## Features
-
-- Native Windows installer with Start Menu and Desktop shortcuts
-- Guided setup wizard for model, channel, gateway, and API key configuration
-- Bundled Node.js runtime (no system-wide install required)
-- Bundled OpenClaw runtime for faster first launch
-- Built-in updater powered by GitHub Releases and `electron-updater`
-- Update center with health checks, bundle verification, rollback guidance, and diagnostics
-- System tray integration and auto-start support
-- Multi-language UI: English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French
-- 50+ AI providers and multiple channels: Telegram, Discord, Slack, WhatsApp, Feishu, and more
-
 ## Feishu Settings & Pairing
 
-Desktop streamlines the Feishu DM pairing flow:
+If you use Feishu with pairing mode, Desktop keeps the whole flow inside the app:
 
-1. Configure Feishu credentials in the setup wizard or in **Settings**.
-2. Keep DM mode on `pairing` if you want to approve users before they can chat.
-3. Ask the requester to DM the bot in Feishu.
-4. Open **Feishu Settings** to review pending requests, approve a sender, edit the allowlist, or add an `open_id` manually.
+1. Configure Feishu credentials in the wizard or in **Settings**
+2. Keep DM mode on `pairing` to approve users before they can chat
+3. Ask the requester to DM the bot in Feishu
+4. Open **Feishu Settings** to review pending requests, approve senders, edit the allowlist, or add an `open_id` manually
 
-If the pending list is empty but you already received a pairing code in Feishu, use the code-based approval path on the same screen — Desktop will use the bundled runtime as a fallback.
-
-## Development
-
-**Prerequisites:** Node.js `>= 22.16.0` · `pnpm` · Windows 10/11
-
-```bash
-git clone https://github.com/agentkernel/openclaw-desktop.git
-cd openclaw-desktop
-pnpm install
-pnpm dev
-```
-
-**Common commands:**
-
-```bash
-pnpm lint
-pnpm type-check
-pnpm build
-pnpm run download-node
-pnpm run download-openclaw
-pnpm run verify-bundle
-pnpm run prepare-bundle
-pnpm run package:win
-```
-
-Build output: `dist/OpenClaw-Setup-<version>.exe`
-
-**Related docs:**
-
-- [CHANGELOG.md](CHANGELOG.md)
-- [docs/product-design.md](docs/product-design.md)
-- [docs/feishu-pairing-ux-plan.md](docs/feishu-pairing-ux-plan.md)
-- [docs/powershell-setup.md](docs/powershell-setup.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [SECURITY.md](SECURITY.md)
+If the pending list is empty but you have a pairing code, use the code-based approval path on the same screen — Desktop will call the bundled OpenClaw runtime as a fallback.
 
 ## FAQ
+
+<details>
+<summary><strong>How do I install OpenClaw on Windows?</strong></summary>
+
+Download `OpenClaw-Setup-0.1.1.exe` from the [latest release](https://github.com/agentkernel/openclaw-desktop/releases/latest) and run it. That's it — no `npm`, no system-wide Node.js, no terminal commands needed.
+</details>
 
 <details>
 <summary><strong>Do I need Node.js installed globally?</strong></summary>
 
 No. The installer ships with a portable Node.js runtime.
-</details>
-
-<details>
-<summary><strong>Where do I download the installer?</strong></summary>
-
-Use the latest release page: [github.com/agentkernel/openclaw-desktop/releases/latest](https://github.com/agentkernel/openclaw-desktop/releases/latest). The main asset is `OpenClaw-Setup-<version>.exe`.
 </details>
 
 <details>
@@ -168,27 +141,52 @@ Use the latest release page: [github.com/agentkernel/openclaw-desktop/releases/l
 - Logs: `%USERPROFILE%\.openclaw\`
 - Backups: `%USERPROFILE%\.openclaw\backups\`
 
-Uninstalling the app does not remove user configuration by default.
+Uninstalling the app does not remove these by default.
 </details>
 
 <details>
 <summary><strong>How do updates work?</strong></summary>
 
-Desktop checks GitHub Releases and can download updates through the built-in updater. You can also download older assets manually for rollback.
+Desktop checks GitHub Releases and can download updates through the built-in updater. You can also download any older asset manually for rollback.
 </details>
 
 <details>
 <summary><strong>What does the Kuae HTTPS proxy fix do?</strong></summary>
 
-When the bundled OpenClaw gateway inherits `HTTP(S)_PROXY`, some local proxies break TLS to Kuae's Coding Plan endpoint. Desktop merges `NO_PROXY` / `no_proxy` for `coding-plan-endpoint.kuaecloud.net` and `.kuaecloud.net` so Kuae traffic goes direct while other traffic still uses your proxy.
-
-To disable this behavior for debugging, set `OPENCLAW_SKIP_KUAE_NO_PROXY=1` before starting the app.
+When the bundled OpenClaw gateway inherits `HTTP(S)_PROXY`, some local proxies break TLS to Kuae's Coding Plan endpoint (`coding-plan-endpoint.kuaecloud.net`). Desktop merges `NO_PROXY` for both `.kuaecloud.net` domains so Kuae traffic goes direct while other providers still use your proxy. Set `OPENCLAW_SKIP_KUAE_NO_PROXY=1` to disable.
 </details>
+
+## Development
+
+```bash
+git clone https://github.com/agentkernel/openclaw-desktop.git
+cd openclaw-desktop
+pnpm install
+pnpm dev
+```
+
+**Prerequisites:** Node.js `>= 22.16.0` · `pnpm` · Windows 10/11
+
+**Common commands:**
+```bash
+pnpm type-check   # Type check
+pnpm build       # Build
+pnpm run download-node
+pnpm run download-openclaw
+pnpm run prepare-bundle
+pnpm run package:win   # Output: dist/OpenClaw-Setup-<version>.exe
+```
+
+**Related docs:** [CHANGELOG.md](CHANGELOG.md) · [docs/product-design.md](docs/product-design.md) · [docs/feishu-pairing-ux-plan.md](docs/feishu-pairing-ux-plan.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
 [GPL-3.0](LICENSE)
 
-<!-- SEO: OpenClaw Desktop, OpenClaw Windows, OpenClaw installer, OpenClaw desktop app, OpenClaw setup wizard,
-OpenClaw Windows installer, OpenClaw GUI, OpenClaw app for Windows, install OpenClaw on Windows, run OpenClaw locally,
+---
+
+⭐ Star History · Contributors · Community
+
+<!-- SEO: OpenClaw Desktop, OpenClaw Windows, OpenClaw installer, OpenClaw Windows installer, OpenClaw desktop app,
+OpenClaw setup wizard, OpenClaw GUI, OpenClaw app for Windows, install OpenClaw on Windows, run OpenClaw locally,
 OpenClaw 桌面版, OpenClaw Windows 安装器, OpenClaw デスクトップ, OpenClaw 데스크톱, how to install openclaw, openclaw setup -->
