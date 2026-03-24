@@ -313,20 +313,24 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
   }
 
   return (
-    <main className="h-screen flex flex-col select-none relative overflow-hidden" role="main">
-      {/* Full-screen Control UI iframe (always mounted when available) */}
+    <main className="h-screen relative overflow-hidden select-none" role="main">
+      {/* Full-screen Control UI iframe (always mounted when available).
+          Do not use flex-1 on iframe: in column flex layouts the iframe often collapses to 0 height
+          (only the dark shell body shows through — looks like a black window). */}
       {showControlUIIframe ? (
         <iframe
           key={`openclaw-control-ui-${controlUiReloadKey}`}
           src={controlUrl}
           title="OpenClaw Control UI"
-          className={`flex-1 w-full min-h-0 border-0 ${hasActivePanel ? 'invisible' : ''}`}
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+          className={`absolute inset-0 z-0 h-full w-full border-0 bg-background ${
+            hasActivePanel ? 'opacity-0 pointer-events-none' : ''
+          }`}
           referrerPolicy="no-referrer"
+          allowFullScreen
         />
       ) : (
         !hasActivePanel && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="absolute inset-0 z-0 flex items-center justify-center">
             <LoadingView
               statusText={statusText}
               timedOut={timedOut}
