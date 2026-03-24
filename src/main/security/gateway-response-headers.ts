@@ -32,6 +32,48 @@ export function relaxGatewayFrameAncestors(csp: string): string {
   return `${trimmed}${trimmed.endsWith(';') ? '' : ';'} ${RELAXED_GATEWAY_FRAME_ANCESTORS}`
 }
 
+/**
+ * Some gateway builds use `default-src 'none'` with `frame-ancestors 'none'`. After we relax
+ * frame-ancestors for the Electron shell iframe, `default-src 'none'` can still block the Control UI
+ * bundle (no script), WebSocket (no connect-src), or CSS — resulting in a blank white iframe.
+ */
+export function mitigateStrictGatewayDefaultSrc(csp: string): string {
+  if (!/\bdefault-src\s+'none'/i.test(csp)) {
+    return csp
+  }
+  const hasScriptSrc = /\bscript-src\b/i.test(csp)
+  if (!hasScriptSrc) {
+    return csp.replace(/\bdefault-src\s+'none'/gi, "default-src 'self'")
+  }
+
+  const extras: string[] = []
+  if (!/\bconnect-src\b/i.test(csp)) {
+    extras.push("connect-src 'self'")
+  }
+  if (!/\bstyle-src\b/i.test(csp)) {
+    extras.push("style-src 'self' 'unsafe-inline'")
+  }
+  if (!/\bimg-src\b/i.test(csp)) {
+    extras.push("img-src 'self' data: blob:")
+  }
+  if (!/\bfont-src\b/i.test(csp)) {
+    extras.push("font-src 'self' data:")
+  }
+  if (!/\bworker-src\b/i.test(csp)) {
+    extras.push("worker-src 'self' blob:")
+  }
+  if (extras.length === 0) {
+    return csp
+  }
+  const trimmed = csp.trim()
+  const sep = trimmed.endsWith(';') || trimmed === '' ? ' ' : '; '
+  return `${trimmed}${sep}${extras.join('; ')}`
+}
+
+function polishGatewayCspForDesktopEmbed(csp: string): string {
+  return mitigateStrictGatewayDefaultSrc(relaxGatewayFrameAncestors(csp))
+}
+
 export function patchGatewayResponseHeaders(
   rawUrl: string,
   responseHeaders: GatewayResponseHeadersInput | undefined,
@@ -60,9 +102,9 @@ export function patchGatewayResponseHeaders(
   if (cspKey) {
     const cspRaw = headers[cspKey]
     if (Array.isArray(cspRaw)) {
-      headers[cspKey] = cspRaw.map((v) => relaxGatewayFrameAncestors(String(v)))
+      headers[cspKey] = cspRaw.map((v) => polishGatewayCspForDesktopEmbed(String(v)))
     } else if (cspRaw) {
-      headers[cspKey] = [relaxGatewayFrameAncestors(String(cspRaw))]
+      headers[cspKey] = [polishGatewayCspForDesktopEmbed(String(cspRaw))]
     } else {
       headers[cspKey] = [RELAXED_GATEWAY_FRAME_ANCESTORS]
     }

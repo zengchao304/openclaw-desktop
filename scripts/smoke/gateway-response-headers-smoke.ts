@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   RELAXED_GATEWAY_FRAME_ANCESTORS,
   isLoopbackGatewayResponseUrl,
+  mitigateStrictGatewayDefaultSrc,
   patchGatewayResponseHeaders,
   relaxGatewayFrameAncestors,
 } from '../../src/main/security/gateway-response-headers.ts'
@@ -49,6 +50,20 @@ function testHeaderPatchForLoopbackResponse(): void {
     "default-src 'self'; frame-ancestors 'self' file: http://localhost:* http://127.0.0.1:* http://[::1]:* https://localhost:* https://127.0.0.1:* https://[::1]:*",
   )
   assert.deepEqual(patched?.Server, ['openclaw'])
+}
+
+function testMitigateDefaultSrcNone(): void {
+  const relaxed = relaxGatewayFrameAncestors("default-src 'none'; frame-ancestors 'none'")
+  const polished = mitigateStrictGatewayDefaultSrc(relaxed)
+  assert.match(polished, /default-src 'self'/)
+  assert.match(polished, /frame-ancestors 'self' file:/)
+
+  const withScript = mitigateStrictGatewayDefaultSrc(
+    relaxGatewayFrameAncestors("default-src 'none'; frame-ancestors 'none'; script-src 'self'"),
+  )
+  assert.match(withScript, /default-src 'none'/)
+  assert.match(withScript, /connect-src 'self'/)
+  assert.match(withScript, /style-src 'self'/)
 }
 
 function testHeaderPatchFallbacks(): void {
@@ -103,6 +118,7 @@ function main(): void {
   const tests: Array<[name: string, fn: () => void]> = [
     ['loopback url recognition', testLoopbackUrlRecognition],
     ['frame-ancestors relaxation', testFrameAncestorsRelaxation],
+    ['mitigate default-src none for embed', testMitigateDefaultSrcNone],
     ['header patch for loopback', testHeaderPatchForLoopbackResponse],
     ['header patch fallbacks', testHeaderPatchFallbacks],
     ['gateway request token rewrite', testGatewayRequestTokenRewrite],

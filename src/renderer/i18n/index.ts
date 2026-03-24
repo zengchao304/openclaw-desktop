@@ -35,11 +35,31 @@ export const SHELL_LOCALE_LABELS: Record<ShellLocale, string> = {
   es: 'Español',
 }
 
+const IPC_LOCALE_TIMEOUT_MS = 8000
+
+function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), ms)
+    void promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(undefined)
+      },
+    )
+  })
+}
+
 async function detectSystemLocale(): Promise<ShellLocale> {
   if (typeof window.electronAPI?.systemGetLocale === 'function') {
     try {
-      const locale = await window.electronAPI.systemGetLocale()
-      return normalizeToShellLocale(locale)
+      const locale = await raceWithTimeout(window.electronAPI.systemGetLocale(), IPC_LOCALE_TIMEOUT_MS)
+      if (locale) {
+        return normalizeToShellLocale(locale)
+      }
     } catch {
       // fall through
     }
@@ -50,8 +70,8 @@ async function detectSystemLocale(): Promise<ShellLocale> {
 async function resolveInitialLocale(): Promise<ShellLocale> {
   if (typeof window.electronAPI?.shellGetConfig === 'function') {
     try {
-      const cfg = await window.electronAPI.shellGetConfig()
-      if (cfg.locale) {
+      const cfg = await raceWithTimeout(window.electronAPI.shellGetConfig(), IPC_LOCALE_TIMEOUT_MS)
+      if (cfg?.locale) {
         return cfg.locale
       }
     } catch {
