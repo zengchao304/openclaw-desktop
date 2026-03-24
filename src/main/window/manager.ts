@@ -157,6 +157,8 @@ export class WindowManager {
       height: Math.max(windowBounds.height, 600),
       minWidth: 800,
       minHeight: 600,
+      // Match shell default light theme; avoids a long black chrome flash while Gateway/iframe loads.
+      backgroundColor: '#ffffff',
       show: false,
       center: shouldCenter,
       title: initialTitle,
