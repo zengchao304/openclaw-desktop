@@ -10,7 +10,6 @@ function getHashRoute(): string {
 }
 
 const VALID_HASH_PANELS = new Set<string>([
-  '',
   'settings',
   'about',
   'dashboard',
