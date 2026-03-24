@@ -351,9 +351,22 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
   }
   if (provider === 'copilot-proxy') {
     const copilotModels = [
-      'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.1', 'gpt-5.1-codex', 'gpt-5.1-codex-max',
-      'gpt-5-mini', 'claude-opus-4.6', 'claude-opus-4.5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
-      'gemini-3-pro', 'gemini-3-flash', 'grok-code-fast-1',
+      'gpt-5.4',
+      'gpt-5.4-pro',
+      'gpt-5.2',
+      'gpt-5.2-codex',
+      'gpt-5.1',
+      'gpt-5.1-codex',
+      'gpt-5.1-codex-max',
+      'gpt-5-mini',
+      'claude-opus-4.6',
+      'claude-opus-4.5',
+      'claude-sonnet-4.6',
+      'claude-sonnet-4.5',
+      'claude-haiku-4.5',
+      'gemini-3-pro',
+      'gemini-3-flash',
+      'grok-code-fast-1',
     ]
     config.models.providers[seed.providerId] = {
       baseUrl: seed.baseUrl,

@@ -255,7 +255,6 @@ export type ModelProvider =
   | 'nvidia'
   | 'qwen-portal'
   | 'google-vertex'
-  | 'google-antigravity'
   | 'google-gemini-cli'
   | 'ollama'
   | 'vllm'

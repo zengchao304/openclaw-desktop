@@ -75,7 +75,6 @@
         "kilocode": "Kilo 網關",
         "venice": "Venice",
         "google-vertex": "Google Vertex",
-        "google-antigravity": "Google Antigravity",
         "google-gemini-cli": "Google Gemini CLI",
         "volcengine": "火山引擎（豆包）",
         "volcengine-plan": "火山引擎（編程）",
@@ -91,7 +90,8 @@
         "vllm": "vLLM（本地）",
         "lmstudio": "LM Studio（本地）",
         "xiaomi": "小米 MiMo",
-        "kuae": "Kuae（編程套餐）"
+        "kuae": "Kuae（編程套餐）",
+        "custom": "自訂（OpenAI/Anthropic 相容）"
       },
       "selectProvider": "選擇提供商",
       "moonshotEndpoint": "Moonshot 接入點",

@@ -33,7 +33,6 @@ const AUTH_MODE_BY_PROVIDER: Record<ModelProvider, ProviderAuthMode> = {
   nvidia: 'api_key',
   'qwen-portal': 'oauth',
   'google-vertex': 'none',
-  'google-antigravity': 'oauth',
   'google-gemini-cli': 'oauth',
   ollama: 'none',
   vllm: 'api_key',

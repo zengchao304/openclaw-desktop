@@ -48,7 +48,6 @@ const PROVIDER_LABELS: Record<ModelProvider, string> = {
   nvidia: 'NVIDIA',
   'qwen-portal': 'Qwen Portal',
   'google-vertex': 'Google Vertex',
-  'google-antigravity': 'Google Antigravity',
   'google-gemini-cli': 'Google Gemini CLI',
   ollama: 'Ollama',
   vllm: 'vLLM',
