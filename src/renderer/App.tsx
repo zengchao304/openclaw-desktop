@@ -9,9 +9,22 @@ function getHashRoute(): string {
   return window.location.hash.replace(/^#/, '')
 }
 
-/** Legacy hash from earlier builds */
+const VALID_HASH_PANELS = new Set<string>([
+  '',
+  'settings',
+  'about',
+  'dashboard',
+  'llm-api',
+  'skills',
+  'updates',
+  'feishu-settings',
+])
+
+/** Map legacy hashes and drop unknown fragments (e.g. pasted gateway #token=…) so we don't open a bogus “panel”. */
 function normalizeShellRoute(route: string): string {
   if (route === 'feishu-access') return 'feishu-settings'
+  if (!route) return ''
+  if (!VALID_HASH_PANELS.has(route)) return ''
   return route
 }
 

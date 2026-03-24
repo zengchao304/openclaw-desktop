@@ -5,6 +5,8 @@ interface LoadingViewProps {
   timedOut?: boolean
   onRetry?: () => void
   hintText?: string
+  /** Inside EmbeddedShellLayout / other nested layouts: avoid min-h-screen (viewport) fighting the parent. */
+  variant?: 'fullscreen' | 'embedded'
 }
 
 function WarningIcon() {
@@ -27,10 +29,19 @@ function WarningIcon() {
   )
 }
 
-export function LoadingView({ statusText, timedOut = false, onRetry, hintText }: LoadingViewProps) {
+export function LoadingView({
+  statusText,
+  timedOut = false,
+  onRetry,
+  hintText,
+  variant = 'fullscreen',
+}: LoadingViewProps) {
+  const embedded = variant === 'embedded'
   return (
-    <main
-      className="min-h-screen flex flex-col items-center justify-center gap-8 px-6 select-none"
+    <div
+      className={`flex flex-col items-center justify-center gap-8 px-6 select-none ${
+        embedded ? 'min-h-0 w-full max-w-lg py-4' : 'min-h-screen'
+      }`}
       role="status"
       aria-live="polite"
     >
@@ -76,6 +87,6 @@ export function LoadingView({ statusText, timedOut = false, onRetry, hintText }:
       {timedOut && onRetry && (
         <Button onClick={onRetry}>Retry</Button>
       )}
-    </main>
+    </div>
   )
 }
