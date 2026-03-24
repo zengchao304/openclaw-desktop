@@ -8,8 +8,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import {
   getBundledNodePath,
+  getBundledOpenClawDir,
   getBundledOpenClawPath,
-  getInstallDir,
   getUserDataDir,
 } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
@@ -107,7 +107,7 @@ export async function runConfigValidate(): Promise<ConfigValidationResult> {
 
   return new Promise((resolve) => {
     const child = spawn(nodePath, fullArgs, {
-      cwd: getInstallDir(),
+      cwd: getBundledOpenClawDir(),
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })

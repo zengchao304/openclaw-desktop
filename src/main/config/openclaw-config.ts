@@ -185,6 +185,51 @@ function migrateFeishuDmPolicy(config: OpenClawConfig): { config: OpenClawConfig
   return { config: next, changed: true }
 }
 
+/** Control UI Vite output is always index.html + assets/*.js — drop stale roots (other PC, or index-only trap). */
+function isUsableControlUiBundleDir(dir: string): boolean {
+  const indexPath = path.join(dir, 'index.html')
+  if (!fs.existsSync(indexPath)) return false
+  const assetsDir = path.join(dir, 'assets')
+  try {
+    if (!fs.existsSync(assetsDir) || !fs.statSync(assetsDir).isDirectory()) return false
+    return fs.readdirSync(assetsDir).some((f) => f.endsWith('.js'))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Remove gateway.controlUi.root when it does not point at a built Control UI (broken embed + black browser tab).
+ */
+function migrateInvalidGatewayControlUiRoot(config: OpenClawConfig): { config: OpenClawConfig; changed: boolean } {
+  const gw = config.gateway
+  if (!gw || typeof gw !== 'object') return { config, changed: false }
+  const ctrl = gw.controlUi
+  if (!ctrl || typeof ctrl !== 'object' || Array.isArray(ctrl)) return { config, changed: false }
+  const rootRaw = (ctrl as Record<string, unknown>).root
+  if (typeof rootRaw !== 'string' || !rootRaw.trim()) return { config, changed: false }
+
+  let dir: string
+  try {
+    const abs = path.resolve(rootRaw.trim())
+    const st = fs.statSync(abs)
+    dir = st.isFile() && abs.toLowerCase().endsWith('.html') ? path.dirname(abs) : abs
+  } catch {
+    dir = ''
+  }
+
+  if (dir && isUsableControlUiBundleDir(dir)) {
+    return { config, changed: false }
+  }
+
+  const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
+  const ng = next.gateway?.controlUi as Record<string, unknown> | undefined
+  if (ng && typeof ng === 'object' && !Array.isArray(ng)) {
+    delete ng.root
+  }
+  return { config: next, changed: true }
+}
+
 /**
  * Read OpenClaw main config.
  * - Missing file → {}
@@ -204,6 +249,8 @@ export function readOpenClawConfig(): OpenClawConfig {
       cfg = migratedProviders.config
       const migratedFeishu = migrateFeishuDmPolicy(cfg)
       cfg = migratedFeishu.config
+      const migratedControlUiRoot = migrateInvalidGatewayControlUiRoot(cfg)
+      cfg = migratedControlUiRoot.config
       const migratedControlUi = migrateDesktopControlUiAllowInsecureAuth(cfg)
       cfg = migratedControlUi.config
       const migratedAuthNone = migrateGatewayAuthModeNoneRemoved(cfg)
@@ -211,6 +258,7 @@ export function readOpenClawConfig(): OpenClawConfig {
       if (
         migratedProviders.changed ||
         migratedFeishu.changed ||
+        migratedControlUiRoot.changed ||
         migratedControlUi.changed ||
         migratedAuthNone.changed
       ) {
@@ -221,6 +269,11 @@ export function readOpenClawConfig(): OpenClawConfig {
           }
           if (migratedFeishu.changed) {
             console.info('[config] Migrated Feishu dmPolicy to pairing in openclaw.json')
+          }
+          if (migratedControlUiRoot.changed) {
+            console.info(
+              '[config] Removed invalid gateway.controlUi.root in openclaw.json (use bundled Control UI auto-detection)',
+            )
           }
           if (migratedControlUi.changed) {
             console.info(

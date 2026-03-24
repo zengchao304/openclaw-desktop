@@ -2,6 +2,13 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.2.13] - 2026-03-24
+
+### Fixed
+
+- **Gateway Control UI black screen (browser and embedded iframe):** Run all bundled OpenClaw child processes with `cwd` set to `resources/openclaw` instead of the install directory. Upstream resolves `process.cwd()/dist/control-ui` before the real bundle path; a stray or partial `dist/control-ui` under the exe folder made HTML load while `assets/*.js` returned 404, leaving a blank dark page.
+- **Stale `gateway.controlUi.root`:** On config read, remove `gateway.controlUi.root` when it does not point at a complete built UI (`index.html` plus `assets/*.js`), so copied configs from other machines or broken paths fall back to automatic bundle detection.
+
 ## [0.2.1] - 2026-03-24
 
 ### Updated

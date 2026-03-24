@@ -5,7 +5,7 @@ import net from 'node:net'
 import path from 'node:path'
 import type { GatewayStatus, GatewayStatusValue } from '../../shared/types.js'
 import { DEFAULT_GATEWAY_PORT } from '../../shared/constants.js'
-import { getBundledNodePath, getBundledOpenClawPath, getInstallDir, getUserDataDir } from '../utils/paths.js'
+import { getBundledNodePath, getBundledOpenClawDir, getBundledOpenClawPath, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 import { logInfo, logWarn } from '../utils/logger.js'
 
@@ -132,7 +132,9 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}): Gat
   return {
     command: nodePath,
     args,
-    cwd: getInstallDir(),
+    // OpenClaw resolves Control UI via process.cwd() (see resolveControlUiRootSync: cwd/dist/control-ui).
+    // Install dir (exe parent) is wrong here — a stray dist/control-ui/index.html without assets yields a black UI.
+    cwd: getBundledOpenClawDir(),
     env: {
       ...applyOpenClawNoProxyBypass(withNodeInPath(process.env, nodePath)),
       OPENCLAW_STATE_DIR: getUserDataDir(),

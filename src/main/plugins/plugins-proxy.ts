@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import type { PluginInfo } from '../../shared/types.js'
-import { getBundledNodePath, getBundledOpenClawPath, getInstallDir, getUserDataDir } from '../utils/paths.js'
+import { getBundledNodePath, getBundledOpenClawDir, getBundledOpenClawPath, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 
 const PLUGINS_TIMEOUT_MS = 60_000
@@ -47,7 +47,7 @@ function runPluginsCli(args: string[]): Promise<{ exitCode: number; stdout: stri
 
   return new Promise((resolve, reject) => {
     const child = spawn(nodePath, fullArgs, {
-      cwd: getInstallDir(),
+      cwd: getBundledOpenClawDir(),
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })

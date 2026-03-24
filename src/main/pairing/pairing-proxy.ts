@@ -8,7 +8,7 @@ import type {
   PairingListApprovedResult,
   PairingListPendingResult,
 } from '../../shared/types.js'
-import { getBundledNodePath, getBundledOpenClawPath, getInstallDir, getUserDataDir } from '../utils/paths.js'
+import { getBundledNodePath, getBundledOpenClawDir, getBundledOpenClawPath, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 
 /** CLI can be slow on cold start; local approve avoids this when we have open_id */
@@ -281,7 +281,7 @@ function runPairingCli(args: string[]): Promise<{ exitCode: number; stdout: stri
 
   return new Promise((resolve, reject) => {
     const child = spawn(nodePath, [openclawPath, 'pairing', ...args], {
-      cwd: getInstallDir(),
+      cwd: getBundledOpenClawDir(),
       env: buildCliEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,

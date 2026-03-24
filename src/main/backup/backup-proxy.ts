@@ -8,8 +8,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import {
   getBundledNodePath,
+  getBundledOpenClawDir,
   getBundledOpenClawPath,
-  getInstallDir,
   getUserDataDir,
 } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
@@ -77,7 +77,7 @@ function runBackupCli(args: string[]): Promise<{ exitCode: number; stdout: strin
 
   return new Promise((resolve, reject) => {
     const child = spawn(nodePath, fullArgs, {
-      cwd: getInstallDir(),
+      cwd: getBundledOpenClawDir(),
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
