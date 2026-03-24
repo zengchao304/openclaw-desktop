@@ -228,7 +228,7 @@ export function readOpenClawConfig(): OpenClawConfig {
             )
           }
           if (migratedAuthNone.changed) {
-            console.info('[config] Migrated gateway.auth.mode from \"none\" (removed upstream) in openclaw.json')
+            console.info('[config] Migrated gateway.auth.mode from "none" (removed upstream) in openclaw.json')
           }
         } catch (err) {
           console.warn(
