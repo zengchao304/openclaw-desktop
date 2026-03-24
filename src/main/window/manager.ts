@@ -5,27 +5,14 @@ import { fileURLToPath } from 'node:url'
 import type { ShellConfig } from '../../shared/types.js'
 import { getLocalizedShellWindowTitle, normalizeToShellLocale } from '../../shared/shell-locale.js'
 import { logError, logInfo, logWarn } from '../utils/logger.js'
-import { getShellIndexPageUrl, isShellCustomProtocolUrl } from '../shell-protocol.js'
+import {
+  getShellIndexPageUrl,
+  getShellRendererIndexPath,
+  isShellCustomProtocolUrl,
+  listShellRendererIndexCandidates,
+} from '../shell-protocol.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function getPackagedRendererCandidates(): string[] {
-  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer', 'index.html')
-  const asar = path.join(app.getAppPath(), 'out', 'renderer', 'index.html')
-  return [unpacked, asar]
-}
-
-/** Packaged build: loadFile from unpacked path so file:// resolves relative assets */
-function getRendererIndexPath(): string {
-  if (app.isPackaged) {
-    for (const candidate of getPackagedRendererCandidates()) {
-      if (fs.existsSync(candidate)) {
-        return candidate
-      }
-    }
-  }
-  return path.join(__dirname, '../renderer/index.html')
-}
 
 /** Packaged preload path */
 function getPreloadCandidates(): string[] {
@@ -222,17 +209,13 @@ export class WindowManager {
     if (process.env.ELECTRON_RENDERER_URL) {
       void window.loadURL(process.env.ELECTRON_RENDERER_URL).then(openDevToolsIfRequested)
     } else {
-      const rendererPath = getRendererIndexPath()
+      const rendererPath = getShellRendererIndexPath()
       const shellUrl = getShellIndexPageUrl()
       if (app.isPackaged) {
-        const rendererCandidates = getPackagedRendererCandidates()
+        const candidates = listShellRendererIndexCandidates()
         logInfo(
-          `[OpenClaw] Packaged: shellUrl=${shellUrl} rendererPath=${rendererPath} candidates=${JSON.stringify(
-            rendererCandidates,
-          )} exists=${JSON.stringify(rendererCandidates.map((p) => fs.existsSync(p)))}`
+          `[OpenClaw] Packaged: shellUrl=${shellUrl} resolvedIndex=${rendererPath} candidates=${JSON.stringify(candidates)} exists=${JSON.stringify(candidates.map((p) => fs.existsSync(p)))}`,
         )
-      } else {
-        logInfo(`[OpenClaw] Dev build: shellUrl=${shellUrl} rendererPath=${rendererPath}`)
       }
       void window
         .loadURL(shellUrl)

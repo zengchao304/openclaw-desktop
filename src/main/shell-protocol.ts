@@ -2,6 +2,7 @@ import { app, protocol } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { logWarn } from './utils/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -11,18 +12,45 @@ export const SHELL_CUSTOM_HOST = 'renderer' as const
 
 let rendererRootCache: string | null = null
 
-function getShellRendererRootDir(): string {
-  if (app.isPackaged) {
-    const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer')
-    if (fs.existsSync(unpacked)) return unpacked
-    return path.join(app.getAppPath(), 'out', 'renderer')
+/** Same candidate order as historical loadFile() — must match where index.html actually lives. */
+export function listShellRendererIndexCandidates(): string[] {
+  if (!app.isPackaged) {
+    return [path.join(__dirname, '../renderer', 'index.html')]
   }
-  return path.join(__dirname, '../renderer')
+  return [
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer', 'index.html'),
+    path.join(app.getAppPath(), 'out', 'renderer', 'index.html'),
+  ]
+}
+
+/**
+ * Directory that contains the resolved index.html (unpacked preferred when that index exists).
+ * Avoids choosing an empty `app.asar.unpacked/.../renderer` folder when only asar has the bundle.
+ */
+export function resolveShellRendererRoot(): string {
+  if (!app.isPackaged) {
+    return path.resolve(path.join(__dirname, '../renderer'))
+  }
+  for (const indexPath of listShellRendererIndexCandidates()) {
+    const dir = path.dirname(indexPath)
+    if (fs.existsSync(indexPath)) {
+      return path.resolve(dir)
+    }
+  }
+  const fallback = path.resolve(path.dirname(listShellRendererIndexCandidates()[0]))
+  logWarn(
+    `[OpenClaw] Shell index.html not found under unpacked or asar; serving from fallback: ${fallback}`,
+  )
+  return fallback
+}
+
+export function getShellRendererIndexPath(): string {
+  return path.join(resolveShellRendererRoot(), 'index.html')
 }
 
 function getShellRendererRootCached(): string {
   if (!rendererRootCache) {
-    rendererRootCache = path.resolve(getShellRendererRootDir())
+    rendererRootCache = resolveShellRendererRoot()
   }
   return rendererRootCache
 }
@@ -61,6 +89,7 @@ export function isShellCustomProtocolUrl(rawUrl: string): boolean {
 
 /** Register after app 'ready', before creating BrowserWindows that load the shell. */
 export function registerShellFileProtocol(): void {
+  rendererRootCache = null
   protocol.registerFileProtocol(SHELL_CUSTOM_SCHEME, (request, callback) => {
     try {
       const parsed = new URL(request.url)
@@ -76,23 +105,25 @@ export function registerShellFileProtocol(): void {
       if (pathname === '/' || pathname === '') {
         pathname = '/index.html'
       }
-      const relative = pathname.replace(/^\/+/, '')
-      if (relative.includes('..')) {
+      const relative = pathname.replace(/^\/+/, '').replace(/\\/g, '/')
+      if (!relative || relative.includes('..') || relative.includes(':')) {
         callback({ error: -10 })
         return
       }
       const root = getShellRendererRootCached()
-      const filePath = path.resolve(path.join(root, relative))
-      const relToRoot = path.relative(root, filePath)
+      const filePath = path.normalize(path.join(root, ...relative.split('/')))
+      const rootResolved = path.resolve(root)
+      const fileResolved = path.resolve(filePath)
+      const relToRoot = path.relative(rootResolved, fileResolved)
       if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) {
         callback({ error: -10 })
         return
       }
-      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      if (!fs.existsSync(fileResolved) || fs.statSync(fileResolved).isDirectory()) {
         callback({ error: -6 })
         return
       }
-      callback({ path: filePath })
+      callback({ path: fileResolved })
     } catch {
       callback({ error: -2 })
     }
