@@ -374,6 +374,11 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
         mode: 'token',
         token: state.gatewayConfig.authToken,
       },
+      // Upstream 2026.3+: Control UI webchat needs device identity when crypto.subtle exists.
+      // Electron iframe may lack a full secure context — allow token-only on loopback for embedded UI.
+      controlUi: {
+        allowInsecureAuth: true,
+      },
     },
     agents: {
       defaults: {

@@ -13,6 +13,7 @@
     "i18n:zh-tw": "node scripts/generate-zh-tw.mjs",
     "download-node": "tsx scripts/download-node.ts",
     "download-openclaw": "tsx scripts/download-openclaw.ts",
+    "package:prepare-deps": "pnpm run download-node && pnpm run download-openclaw",
     "prepare-bundle": "tsx scripts/prepare-bundle.ts",
     "verify-bundle": "tsx scripts/verify-bundle.ts",
     "verify-native-modules": "tsx scripts/verify-native-modules.ts",

@@ -96,6 +96,11 @@ async function main(): Promise<void> {
 
   const version = resolveVersion(requestedVersion)
   console.log(`  [resolve] target version: ${version}`)
+  if (requestedVersion === DEFAULT_VERSION || /^latest$/i.test(requestedVersion)) {
+    console.log(
+      '  [policy] Installing from npm dist-tag `latest` (override: CLI arg or OPENCLAW_DESKTOP_BUNDLE_VERSION).',
+    )
+  }
 
   // Idempotent: skip if already installed with matching version (+ commander + Control UI)
   const markerPath = join(OPENCLAW_DIR, VERSION_MARKER)

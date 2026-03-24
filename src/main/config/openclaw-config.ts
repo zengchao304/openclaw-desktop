@@ -101,6 +101,37 @@ function migrateLegacyProviderConfig(config: OpenClawConfig): { config: OpenClaw
 }
 
 /** Ensure Feishu channel keeps explicit `dmPolicy: pairing` so DMs use pairing flow (not implicit open). */
+/**
+ * OpenClaw 2026.3+ rejects Control UI WebSocket connects without device identity unless
+ * `gateway.controlUi.allowInsecureAuth` is set. The desktop embeds Control UI in a sandboxed
+ * iframe where `crypto.subtle` may be missing — enable this for local (non-remote) gateways.
+ */
+function migrateDesktopControlUiAllowInsecureAuth(
+  config: OpenClawConfig,
+): { config: OpenClawConfig; changed: boolean } {
+  const gw = config.gateway
+  if (!gw || typeof gw !== 'object') {
+    return { config, changed: false }
+  }
+  if (gw.mode === 'remote') {
+    return { config, changed: false }
+  }
+  const ctrl = gw.controlUi
+  if (ctrl && typeof ctrl === 'object' && ctrl.allowInsecureAuth !== undefined) {
+    return { config, changed: false }
+  }
+  const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
+  const ng = next.gateway
+  if (!ng || typeof ng !== 'object') {
+    return { config, changed: false }
+  }
+  ng.controlUi = {
+    ...(typeof ng.controlUi === 'object' && ng.controlUi !== null ? ng.controlUi : {}),
+    allowInsecureAuth: true,
+  }
+  return { config: next, changed: true }
+}
+
 function migrateFeishuDmPolicy(config: OpenClawConfig): { config: OpenClawConfig; changed: boolean } {
   const feishu = config.channels?.feishu
   if (!feishu || typeof feishu !== 'object' || Array.isArray(feishu)) {
@@ -138,7 +169,9 @@ export function readOpenClawConfig(): OpenClawConfig {
       cfg = migratedProviders.config
       const migratedFeishu = migrateFeishuDmPolicy(cfg)
       cfg = migratedFeishu.config
-      if (migratedProviders.changed || migratedFeishu.changed) {
+      const migratedControlUi = migrateDesktopControlUiAllowInsecureAuth(cfg)
+      cfg = migratedControlUi.config
+      if (migratedProviders.changed || migratedFeishu.changed || migratedControlUi.changed) {
         try {
           writeOpenClawConfig(cfg)
           if (migratedProviders.changed) {
@@ -146,6 +179,11 @@ export function readOpenClawConfig(): OpenClawConfig {
           }
           if (migratedFeishu.changed) {
             console.info('[config] Migrated Feishu dmPolicy to pairing in openclaw.json')
+          }
+          if (migratedControlUi.changed) {
+            console.info(
+              '[config] Set gateway.controlUi.allowInsecureAuth=true for embedded Control UI (OpenClaw 2026.3+)',
+            )
           }
         } catch (err) {
           console.warn(

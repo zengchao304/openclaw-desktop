@@ -76,6 +76,10 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
   const [timedOut, setTimedOut] = useState(false)
   const [gatewayPort, setGatewayPort] = useState<number | null>(null)
   const [controlUrl, setControlUrl] = useState<string | null>(null)
+  /** Bumps when the gateway process restarts so the iframe remounts and opens a fresh WebSocket (same #token URL would otherwise not reload). */
+  const [controlUiReloadKey, setControlUiReloadKey] = useState(0)
+  const prevGatewayStatusRef = useRef<GatewayStatusValue | null>(null)
+  const lastRunningPidRef = useRef<number | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const updateAvailable = useUpdateNoticeStore((state) => state.available)
   const updateDismissed = useUpdateNoticeStore((state) => state.dismissed)
@@ -107,26 +111,53 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
 
   const handleStatusUpdate = useCallback(
     (status: GatewayStatus) => {
+      const prev = prevGatewayStatusRef.current
+      prevGatewayStatusRef.current = status.status
+
       setStatusText(STATUS_LABELS[status.status])
       if (status.status === 'running') {
         clearTimeoutTimer()
-        setGatewayPort(status.port)
         setGatewayView('loading')
+
+        const resumedFromNonRunning = prev !== 'running'
+        const pidChanged =
+          status.pid != null &&
+          lastRunningPidRef.current != null &&
+          status.pid !== lastRunningPidRef.current
+        const shouldReloadControlUi = resumedFromNonRunning || pidChanged
+        if (status.pid != null) {
+          lastRunningPidRef.current = status.pid
+        }
+
+        setGatewayPort(status.port)
         void (async () => {
           try {
             const config = await window.electronAPI.configRead()
             const token = config?.gateway?.auth?.token
-            setControlUrl(buildControlUIUrl(status.port, token))
+            const url = buildControlUIUrl(status.port, token)
+            if (shouldReloadControlUi) {
+              setControlUiReloadKey((k) => k + 1)
+            }
+            setControlUrl(url)
           } catch {
+            if (shouldReloadControlUi) {
+              setControlUiReloadKey((k) => k + 1)
+            }
             setControlUrl(buildControlUIUrl(status.port))
           }
         })()
-      } else if (status.status === 'error') {
-        showError({
-          errorType: 'gateway-crash',
-          title: 'Gateway service exited unexpectedly',
-          detail: 'Please check Gateway configuration and logs, then retry.',
-        })
+      } else {
+        if (prev === 'running') {
+          setGatewayPort(null)
+          setControlUrl(null)
+        }
+        if (status.status === 'error') {
+          showError({
+            errorType: 'gateway-crash',
+            title: 'Gateway service exited unexpectedly',
+            detail: 'Please check Gateway configuration and logs, then retry.',
+          })
+        }
       }
     },
     [clearTimeoutTimer, showError],
@@ -286,6 +317,7 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
       {/* Full-screen Control UI iframe (always mounted when available) */}
       {showControlUIIframe ? (
         <iframe
+          key={`openclaw-control-ui-${controlUiReloadKey}`}
           src={controlUrl}
           title="OpenClaw Control UI"
           className={`flex-1 w-full min-h-0 border-0 ${hasActivePanel ? 'invisible' : ''}`}

@@ -19,3 +19,5 @@ GitHub-guide.md
 openclaw-main/
 .temp-openclaw/
 cobrain/
+.claude/
+dist-backup/

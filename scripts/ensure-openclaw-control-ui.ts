@@ -1,7 +1,8 @@
 /**
  * npm `openclaw` packages no longer ship `dist/control-ui/` (see upstream package.json "files").
  * Gateway still serves static assets from that path. This step fetches matching GitHub tag sources
- * (`ui/` + `scripts/ui.js`), runs `vite build` into `../dist/control-ui`, then deletes UI sources
+ * (`ui/` + `scripts/ui.js` + repo-root `src/` for shared imports), runs `vite build` into
+ * `../dist/control-ui`, then deletes those sources
  * and devDependencies so the desktop bundle stays small.
  *
  * Note: Vite 8 + Rolldown native bindings often fail on GitHub `windows-latest`; CI builds UI on Linux
@@ -88,12 +89,16 @@ export async function downloadAndBuildOpenClawControlUiAt(
     const srcRoot = await findExtractedRepoRoot(extractDir)
     const uiSrc = join(srcRoot, 'ui')
     const uiDest = join(openclawRoot, 'ui')
+    const sharedSrc = join(srcRoot, 'src')
+    const sharedDest = join(openclawRoot, 'src')
     const scriptSrc = join(srcRoot, 'scripts', 'ui.js')
     const scriptDestDir = join(openclawRoot, 'scripts')
     const scriptDest = join(scriptDestDir, 'ui.js')
 
     await rm(uiDest, { recursive: true, force: true })
     await cp(uiSrc, uiDest, { recursive: true })
+    await rm(sharedDest, { recursive: true, force: true })
+    await cp(sharedSrc, sharedDest, { recursive: true })
     await mkdir(scriptDestDir, { recursive: true })
     await cp(scriptSrc, scriptDest)
 
@@ -121,9 +126,11 @@ export async function downloadAndBuildOpenClawControlUiAt(
 
 async function removeBundledUiSources(openclawDir: string): Promise<void> {
   const uiDest = join(openclawDir, 'ui')
+  const sharedDest = join(openclawDir, 'src')
   const scriptDest = join(openclawDir, 'scripts', 'ui.js')
   const scriptDestDir = join(openclawDir, 'scripts')
   await rm(uiDest, { recursive: true, force: true })
+  await rm(sharedDest, { recursive: true, force: true })
   await rm(scriptDest, { force: true })
   try {
     const rest = await readdir(scriptDestDir)
@@ -137,7 +144,7 @@ async function removeBundledUiSources(openclawDir: string): Promise<void> {
 
 /**
  * If `dist/control-ui/index.html` is missing under `openclawDir`, fetch matching GitHub tag sources and build.
- * Strips `ui/` + `scripts/ui.js` after a successful build to keep the bundle lean.
+ * Strips `ui/` + `src/` + `scripts/ui.js` after a successful build to keep the bundle lean.
  */
 export async function ensureOpenClawControlUiBuilt(
   openclawDir: string,

@@ -227,7 +227,15 @@ export class GatewayRpcClient {
       },
       auth,
       role: 'operator',
-      scopes: ['operator.read', 'operator.write', 'operator.admin'],
+      // Align with upstream Control UI operator scopes (gateway.ts CONTROL_UI_OPERATOR_SCOPES)
+      scopes: [
+        'operator.admin',
+        'operator.read',
+        'operator.write',
+        'operator.approvals',
+        'operator.pairing',
+      ],
+      caps: ['tool-events'],
     }
     const frame: RequestFrame = {
       type: 'req',

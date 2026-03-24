@@ -50,6 +50,16 @@ export interface GatewayAuthConfig {
   token?: string
 }
 
+/** Gateway Control UI policy (upstream `gateway.controlUi.*`) */
+export interface GatewayControlUiConfig {
+  /**
+   * When true, loopback Control UI may connect with token/password only if device identity
+   * is unavailable (e.g. Electron sandboxed iframe without `crypto.subtle`).
+   * Required for embedded dashboard in OpenClaw Desktop.
+   */
+  allowInsecureAuth?: boolean
+}
+
 /** Gateway config */
 export interface GatewayConfig {
   /** Matches upstream doctor: local (desktop shell) or remote */
@@ -57,6 +67,7 @@ export interface GatewayConfig {
   port?: number
   bind?: 'loopback' | 'lan' | 'auto'
   auth?: GatewayAuthConfig
+  controlUi?: GatewayControlUiConfig
   /** When true, pass --force on port conflict (aligned with gateway run) */
   forcePortOnConflict?: boolean
 }

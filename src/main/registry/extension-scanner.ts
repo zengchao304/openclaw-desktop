@@ -1,5 +1,8 @@
 /**
  * Scan extension dirs for openclaw.plugin.json (lightweight upstream-style discovery).
+ *
+ * Upstream 2026.3+ ships bundled channel/provider plugins under `dist/extensions/*` in the
+ * published npm package. Older layouts used a top-level `extensions/` directory — scan both.
  */
 
 import fs from 'node:fs'
@@ -106,12 +109,17 @@ export function scanExtensions(opts: ScanExtensionsOptions): ExtensionRegistryIt
 
   const seen = new Map<string, ExtensionRegistryItem>()
 
-  // 1. Bundled: resources/openclaw/extensions/
-  const bundledExtDir = path.join(bundledRoot, 'extensions')
-  for (const item of scanDirForExtensions(bundledExtDir, 'bundled')) {
-    if (!seen.has(item.id)) {
-      item.enabled = getPluginEnabled(config, item.id)
-      seen.set(item.id, item)
+  // 1. Bundled: dist/extensions/ (npm 2026.3+), then legacy extensions/
+  const bundledExtDirs = [
+    path.join(bundledRoot, 'dist', 'extensions'),
+    path.join(bundledRoot, 'extensions'),
+  ]
+  for (const bundledExtDir of bundledExtDirs) {
+    for (const item of scanDirForExtensions(bundledExtDir, 'bundled')) {
+      if (!seen.has(item.id)) {
+        item.enabled = getPluginEnabled(config, item.id)
+        seen.set(item.id, item)
+      }
     }
   }
 

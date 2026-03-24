@@ -64,6 +64,18 @@
 
 完整更新记录：[CHANGELOG.md](CHANGELOG.md)
 
+## 与上游 OpenClaw 的兼容性（2026.3.22）
+
+本桌面发行版在发布流水线中会执行 `pnpm run download-openclaw`，**默认按 npm 注册表的 `openclaw@latest` 解析并安装**（与 GitHub Release `v2026.3.22` 对齐）；本地打包前也应先执行 `download-openclaw` 再 `prepare-bundle`。Git 仓库里的 [`resources/bundle-manifest.json`](resources/bundle-manifest.json) 仅作参考，**实际捆绑版本以 `prepare-bundle` 写入的 `bundledOpenClawVersion` 为准**。
+
+- **运行环境**：捆绑便携 Node.js **22.16.0**（见 `pnpm run download-node`），满足上游 `openclaw.mjs` 与 `engines` 对 Node **≥22.16** 的要求。
+- **状态与配置**：与上游一致使用 `%USERPROFILE%\.openclaw`、主配置 `openclaw.json`，环境变量请使用 **`OPENCLAW_*`**（`CLAWDBOT_*` / `MOLTBOT_*`、`.moltbot` 等旧名已在上游移除）。
+- **Control UI**：npm 包不再附带 `dist/control-ui/`，构建时从 **GitHub 标签 `v<版本号>`** 拉取 `ui/` + 仓库根 `src/` 等源码后执行 Vite；CI 在 Linux 构建静态资源再合并到 Windows 安装包。
+- **内置插件列表**：上游将内置频道/提供商插件放在 **`dist/extensions/*`**；壳内扩展扫描已同时支持该路径与旧版顶层 `extensions/`。
+- **重大变更说明**：插件 SDK（`openclaw/plugin-sdk/*`）、浏览器/安装行为等 Breaking 变更以 [openclaw v2026.3.22 Release](https://github.com/openclaw/openclaw/releases/tag/v2026.3.22) 及 [上游文档](https://docs.openclaw.ai/) 为准；仅使用安装包与向导的用户一般无需额外操作，**自研/第三方插件**作者需按上游迁移指引更新。
+
+*英文版同节：[README.md](./README.md)。*
+
 ## 核心功能
 
 | | |
@@ -173,11 +185,12 @@ pnpm dev
 ```bash
 pnpm type-check   # 类型检查
 pnpm build       # 构建
-pnpm run download-node
-pnpm run download-openclaw
+pnpm run package:prepare-deps   # download-node + download-openclaw（打安装包前）
 pnpm run prepare-bundle
 pnpm run package:win   # 输出: dist/OpenClaw-Setup-<version>.exe
 ```
+
+**捆绑 OpenClaw：** 执行 `prepare-bundle` 后查看 [`resources/bundle-manifest.json`](resources/bundle-manifest.json) 中的 `bundledOpenClawVersion`（默认随 npm `openclaw@latest`；桌面 **v0.2.1** 对应 **2026.3.22**）。
 
 **相关文档：** [CHANGELOG.md](CHANGELOG.md) · [docs/product-design.md](docs/product-design.md) · [docs/feishu-pairing-ux-plan.md](docs/feishu-pairing-ux-plan.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 

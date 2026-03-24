@@ -64,6 +64,18 @@ Earlier highlights (v0.1.1): Feishu settings entry points, desktop pairing appro
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
+## Compatibility with upstream OpenClaw (2026.3.22)
+
+Release builds run `pnpm run download-openclaw`, which **resolves and installs npm `openclaw@latest` by default** (aligned with GitHub release `v2026.3.22`). For local packaging, run `download-openclaw` before `prepare-bundle`. The committed [`resources/bundle-manifest.json`](resources/bundle-manifest.json) is informational only — **the bundled version is whatever `prepare-bundle` writes to `bundledOpenClawVersion`.**
+
+- **Runtime:** Bundled portable Node.js **22.16.0** (`pnpm run download-node`), matching upstream `openclaw.mjs` / `engines` (**Node ≥ 22.16**).
+- **State & config:** Same as upstream: `%USERPROFILE%\.openclaw`, main config `openclaw.json`. Use **`OPENCLAW_*`** env vars (`CLAWDBOT_*` / `MOLTBOT_*`, `.moltbot`, etc. were removed upstream).
+- **Control UI:** The npm package does not ship `dist/control-ui/`; we fetch GitHub tag **`v<version>`** sources (`ui/` plus repo-root `src/`, etc.) and run Vite. CI builds static assets on Linux and merges them into the Windows installer.
+- **Bundled plugin list:** Upstream ships built-in channel/provider plugins under **`dist/extensions/*`**; the desktop shell scans that path and still falls back to legacy top-level `extensions/`.
+- **Breaking changes:** Plugin SDK (`openclaw/plugin-sdk/*`), browser/install behavior, and other breaking items are covered in the [openclaw v2026.3.22 release](https://github.com/openclaw/openclaw/releases/tag/v2026.3.22) and [upstream docs](https://docs.openclaw.ai/). Installer-only users usually need no action; **custom/third-party plugin** authors should follow upstream migration guides.
+
+*Same section in Chinese: [README.zh-CN.md](./README.zh-CN.md).*
+
 ## Features
 
 | | |
@@ -173,11 +185,12 @@ pnpm dev
 ```bash
 pnpm type-check   # Type check
 pnpm build       # Build
-pnpm run download-node
-pnpm run download-openclaw
+pnpm run package:prepare-deps   # download-node + download-openclaw (before installer)
 pnpm run prepare-bundle
 pnpm run package:win   # Output: dist/OpenClaw-Setup-<version>.exe
 ```
+
+**Bundled OpenClaw:** After `prepare-bundle`, see `bundledOpenClawVersion` in [`resources/bundle-manifest.json`](resources/bundle-manifest.json) (default: npm `openclaw@latest`, currently **2026.3.22** for desktop v0.2.1).
 
 **Related docs:** [CHANGELOG.md](CHANGELOG.md) · [docs/product-design.md](docs/product-design.md) · [docs/feishu-pairing-ux-plan.md](docs/feishu-pairing-ux-plan.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 

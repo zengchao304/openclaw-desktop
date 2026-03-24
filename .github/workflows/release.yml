@@ -154,6 +154,7 @@ jobs:
             Copy-Item resources/apple-touch-icon.png apple-touch-icon.png -Force
           }
 
+      # OpenClaw: `download-openclaw` with no args → npm `openclaw@latest` at job time (registry query).
       - name: Download Node.js and OpenClaw (skip Vite on Windows)
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"

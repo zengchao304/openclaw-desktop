@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process'
 import fs from 'node:fs'
+import http from 'node:http'
+import net from 'node:net'
 import path from 'node:path'
 import type { GatewayStatus, GatewayStatusValue } from '../../shared/types.js'
 import { DEFAULT_GATEWAY_PORT } from '../../shared/constants.js'
@@ -31,7 +33,9 @@ export interface GatewayLaunchSpec {
 export interface GatewayProcessManagerOptions {
   onLog?: (event: GatewayLogEvent) => void
   onStatusChange?: (status: GatewayStatus) => void
+  /** Interval for desktop-side gateway liveness probes (TCP + optional HTTP fallback). Never set to 0 to “skip”; use a large value only if you must slow probes. */
   healthCheckIntervalMs?: number
+  /** Consecutive probe failures before SIGTERM + auto-restart. Default 3 avoids killing the gateway when its HTTP handler is briefly backlogged. */
   healthCheckFailureThreshold?: number
   maxAutoRestarts?: number
   restartWindowMs?: number
@@ -93,6 +97,23 @@ function withNodeInPath(env: NodeJS.ProcessEnv, nodePath: string): NodeJS.Proces
     PATH: currentPath ? `${nodeDir}${path.delimiter}${currentPath}` : nodeDir,
   }
 }
+
+/** Loopback hosts for NO_PROXY so undici `fetch` in the main process never sends health checks via HTTP(S)_PROXY. */
+const LOOPBACK_NO_PROXY_HOSTS = ['127.0.0.1', 'localhost', '[::1]', '::1'] as const
+
+/**
+ * Merge loopback into NO_PROXY / no_proxy once (Electron main). Child gateway env is patched separately
+ * via {@link applyOpenClawNoProxyBypass}; without this, `fetch('http://127.0.0.1:…')` can hang behind a proxy
+ * until AbortSignal timeout → spurious gateway restarts.
+ */
+function ensureMainProcessLoopbackNoProxy(): void {
+  for (const key of ['NO_PROXY', 'no_proxy'] as const) {
+    const merged = mergeNoProxyList(process.env[key], LOOPBACK_NO_PROXY_HOSTS)
+    process.env[key] = merged
+  }
+}
+
+ensureMainProcessLoopbackNoProxy()
 
 export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}): GatewayLaunchSpec {
   const port = options.port ?? DEFAULT_GATEWAY_PORT
@@ -169,8 +190,9 @@ export class GatewayProcessManager {
   constructor(options: GatewayProcessManagerOptions = {}) {
     this.onLog = options.onLog
     this.onStatusChange = options.onStatusChange
-    this.healthCheckIntervalMs = options.healthCheckIntervalMs ?? 10_000
-    this.healthCheckFailureThreshold = Math.max(1, options.healthCheckFailureThreshold ?? 1)
+    // Slightly spaced checks; TCP probe below avoids HTTP backlog false positives under plugin load.
+    this.healthCheckIntervalMs = options.healthCheckIntervalMs ?? 12_000
+    this.healthCheckFailureThreshold = Math.max(1, options.healthCheckFailureThreshold ?? 3)
     this.maxAutoRestarts = options.maxAutoRestarts ?? 3
     this.restartWindowMs = options.restartWindowMs ?? 5 * 60_000
     this.lifecycleChain = Promise.resolve(this.getStatus())
@@ -464,8 +486,15 @@ export class GatewayProcessManager {
   }
 
   private async checkGatewayHealth(port: number): Promise<GatewayHealthCheckResult> {
+    // TCP connect completes in the kernel — it does not wait for the gateway HTTP handler to run.
+    // When the Node gateway is busy (long RPC / plugin init), queued GET /health can exceed timeouts
+    // and falsely trigger SIGTERM restarts, which empties the embedded Control UI.
+    const tcp = await this.checkGatewayTcpPortOpen(port)
+    if (tcp.ok) {
+      return tcp
+    }
     const endpoints = ['/health', '/api/health', '/']
-    let lastResult: GatewayHealthCheckResult | null = null
+    let lastResult: GatewayHealthCheckResult = tcp
     for (const endpoint of endpoints) {
       const result = await this.checkGatewayHealthEndpoint(port, endpoint)
       if (result.ok) {
@@ -473,29 +502,80 @@ export class GatewayProcessManager {
       }
       lastResult = result
     }
-    return lastResult ?? { ok: false, details: 'unknown' }
+    return lastResult
+  }
+
+  /** Fast liveness: if something listens on the gateway port, the process is almost certainly up. */
+  private checkGatewayTcpPortOpen(port: number): Promise<GatewayHealthCheckResult> {
+    const timeoutMs = 8000
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (result: GatewayHealthCheckResult) => {
+        if (settled) return
+        settled = true
+        resolve(result)
+      }
+
+      const socket = net.connect({ port, host: '127.0.0.1', family: 4 })
+      const timer = setTimeout(() => {
+        socket.destroy()
+        finish({ ok: false, details: 'This operation was aborted' })
+      }, timeoutMs)
+
+      socket.once('connect', () => {
+        clearTimeout(timer)
+        socket.end()
+        finish({ ok: true })
+      })
+      socket.once('error', (err) => {
+        clearTimeout(timer)
+        finish({ ok: false, details: err.message })
+      })
+    })
   }
 
   private async checkGatewayHealthEndpoint(port: number, endpoint: string): Promise<GatewayHealthCheckResult> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 4000)
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
-        method: 'GET',
-        signal: controller.signal,
+    const timeoutMs = 12_000
+    // Use node:http (not global fetch/undici): corporate HTTP_PROXY often omits loopback from NO_PROXY,
+    // causing fetch to hang until abort — false "gateway down" and endless SIGTERM restarts.
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (result: GatewayHealthCheckResult) => {
+        if (settled) return
+        settled = true
+        resolve(result)
+      }
+
+      let req: http.ClientRequest | null = null
+      const timer = setTimeout(() => {
+        req?.destroy()
+        finish({ ok: false, details: 'This operation was aborted' })
+      }, timeoutMs)
+
+      req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path: endpoint,
+          method: 'GET',
+          family: 4,
+        },
+        (res) => {
+          res.resume()
+          clearTimeout(timer)
+          // Any HTTP response means the TCP port is open and the server is listening.
+          // We do NOT require 2xx because:
+          //  - /health and /api/health may return 404 (not implemented in all gateway versions)
+          //  - / may return 403 when accessed without auth token
+          finish({ ok: true, statusCode: res.statusCode })
+        },
+      )
+      req.on('error', (err) => {
+        clearTimeout(timer)
+        finish({ ok: false, details: err.message })
       })
-      // Any HTTP response means the TCP port is open and the server is listening.
-      // We do NOT require 2xx because:
-      //  - /health and /api/health may return 404 (not implemented in all gateway versions)
-      //  - / may return 403 when accessed without auth token
-      // Only a network-level failure (ECONNREFUSED, timeout, etc.) means the gateway is down.
-      return { ok: true, statusCode: response.status }
-    } catch (error) {
-      const details = error instanceof Error ? error.message : String(error)
-      return { ok: false, details }
-    } finally {
-      clearTimeout(timeout)
-    }
+      req.end()
+    })
   }
 
   private pruneRestartHistory(now: number): void {
