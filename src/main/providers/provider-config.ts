@@ -140,6 +140,17 @@ export function setModelAliases(
 }
 
 /**
+ * Canonical auth.order entry for a provider. OpenClaw expects full profile ids
+ * (e.g. `anthropic:work`); older configs may use shorthand (`work` → `anthropic:work`).
+ */
+export function normalizeAuthOrderEntry(providerId: string, entry: string): string {
+  const t = entry.trim()
+  if (!t) return t
+  if (t.includes(':')) return t
+  return `${providerId}:${t}`
+}
+
+/**
  * Reorder profiles in auth.order[provider]
  */
 export function updateAuthOrder(
@@ -164,8 +175,10 @@ export function addProfileToAuthOrder(
 ): OpenClawConfig {
   const order = (currentConfig?.auth?.order ?? {}) as Record<string, string[]>
   const existing = order[providerId] ?? []
-  if (existing.includes(profileId)) return currentConfig
-  return updateAuthOrder(currentConfig, providerId, [profileId, ...existing])
+  const newEntry = normalizeAuthOrderEntry(providerId, profileId)
+  const normalized = [...new Set(existing.map((e) => normalizeAuthOrderEntry(providerId, e)))]
+  if (normalized.includes(newEntry)) return currentConfig
+  return updateAuthOrder(currentConfig, providerId, [newEntry, ...normalized])
 }
 
 /**
@@ -178,7 +191,10 @@ export function removeProfileFromAuthOrder(
 ): OpenClawConfig {
   const order = (currentConfig?.auth?.order ?? {}) as Record<string, string[]>
   const existing = order[providerId] ?? []
-  const filtered = existing.filter((id) => id !== profileId)
+  const target = normalizeAuthOrderEntry(providerId, profileId)
+  const filtered = existing.filter(
+    (id) => normalizeAuthOrderEntry(providerId, id) !== target,
+  )
   if (filtered.length === existing.length) return currentConfig
   return updateAuthOrder(currentConfig, providerId, filtered)
 }

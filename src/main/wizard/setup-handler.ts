@@ -147,8 +147,8 @@ const PROVIDER_SEEDS: Partial<Record<ModelProvider, ProviderSeed>> = {
   },
   xiaomi: {
     providerId: 'xiaomi',
-    baseUrl: 'https://api.xiaomimimo.com/anthropic',
-    api: 'anthropic-messages',
+    baseUrl: 'https://api.xiaomimimo.com/v1',
+    api: 'openai-completions',
   },
   qianfan: {
     providerId: 'qianfan',
@@ -516,7 +516,8 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
       },
       order: {
         ...(config.auth?.order ?? {}),
-        [authProviderId]: [profileName],
+        // Full profile id (matches OpenClaw auth.order + providersSaveProfile)
+        [authProviderId]: [profileId],
       },
     }
   }

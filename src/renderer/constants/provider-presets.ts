@@ -1,6 +1,6 @@
 /**
  * Wizard + LLM API 设置：供应商列表与模型预设。
- * 与上游 OpenClaw 捆绑版本对齐（参见仓库内 build/openclaw/CHANGELOG.md、docs.openclaw.ai）。
+ * 与上游 OpenClaw 捆绑版本对齐（package.json `openclawBundleVersion`、build/openclaw/docs/providers、dist 内建 catalog）。
  * 额外配置字段由 ModelStep 处理：moonshot 区域、Cloudflare Gateway、自定义 baseUrl/兼容模式等。
  */
 
@@ -85,6 +85,8 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'gpt-5.4', label: 'GPT-5.4 (Codex)' },
     { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
     { id: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark' },
+    { id: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
+    { id: 'gpt-5.1-codex', label: 'GPT-5.1 Codex' },
   ],
   google: [
     { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' },
@@ -93,7 +95,14 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
   ],
   xai: [
     { id: 'grok-4', label: 'Grok 4' },
-    { id: 'grok-3', label: 'Grok 3' },
+    { id: 'grok-4-0709', label: 'Grok 4 (0709)' },
+    { id: 'grok-4-fast-reasoning', label: 'Grok 4 Fast (reasoning)' },
+    { id: 'grok-4-fast-non-reasoning', label: 'Grok 4 Fast (non-reasoning)' },
+    { id: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Fast (reasoning)' },
+    { id: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast (non-reasoning)' },
+    { id: 'grok-4.20-reasoning', label: 'Grok 4.20 (reasoning)' },
+    { id: 'grok-4.20-non-reasoning', label: 'Grok 4.20 (non-reasoning)' },
+    { id: 'grok-code-fast-1', label: 'Grok Code Fast 1' },
   ],
   opencode: [
     { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
@@ -101,8 +110,9 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'gemini-3-pro', label: 'Gemini 3 Pro' },
   ],
   'vercel-ai-gateway': [
-    { id: 'openai/gpt-5.4', label: 'OpenAI GPT-5.4' },
     { id: 'anthropic/claude-opus-4.6', label: 'Anthropic Claude Opus 4.6' },
+    { id: 'openai/gpt-5.4', label: 'OpenAI GPT-5.4' },
+    { id: 'anthropic/claude-sonnet-4.6', label: 'Anthropic Claude Sonnet 4.6' },
     { id: 'anthropic/claude-sonnet-4.5', label: 'Anthropic Claude Sonnet 4.5' },
     { id: 'google/gemini-3-flash-preview', label: 'Google Gemini 3 Flash' },
   ],
@@ -110,8 +120,37 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
     { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
   ],
-  minimax: [{ id: 'MiniMax-M2.5', label: 'MiniMax M2.5' }],
-  synthetic: [{ id: 'claude-opus-4-6', label: 'Claude Opus 4.6' }],
+  minimax: [
+    { id: 'MiniMax-M2.7', label: 'MiniMax M2.7' },
+    { id: 'MiniMax-M2.7-highspeed', label: 'MiniMax M2.7 Highspeed' },
+    { id: 'MiniMax-M2', label: 'MiniMax M2' },
+    { id: 'MiniMax-M2.1', label: 'MiniMax M2.1' },
+    { id: 'MiniMax-M2.1-highspeed', label: 'MiniMax M2.1 Highspeed' },
+    { id: 'MiniMax-M2.5', label: 'MiniMax M2.5' },
+    { id: 'MiniMax-M2.5-highspeed', label: 'MiniMax M2.5 Highspeed' },
+    { id: 'MiniMax-VL-01', label: 'MiniMax VL 01 (vision)' },
+  ],
+  synthetic: [
+    { id: 'hf:MiniMaxAI/MiniMax-M2.5', label: 'MiniMax M2.5 (HF)' },
+    { id: 'hf:moonshotai/Kimi-K2-Thinking', label: 'Kimi K2 Thinking (HF)' },
+    { id: 'hf:zai-org/GLM-4.7', label: 'GLM 4.7 (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-R1-0528', label: 'DeepSeek R1 0528 (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-V3-0324', label: 'DeepSeek V3 0324 (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-V3.1', label: 'DeepSeek V3.1 (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-V3.1-Terminus', label: 'DeepSeek V3.1 Terminus (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-V3.2', label: 'DeepSeek V3.2 (HF)' },
+    { id: 'hf:meta-llama/Llama-3.3-70B-Instruct', label: 'Llama 3.3 70B Instruct (HF)' },
+    { id: 'hf:meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', label: 'Llama 4 Maverick (HF)' },
+    { id: 'hf:moonshotai/Kimi-K2-Instruct-0905', label: 'Kimi K2 Instruct 0905 (HF)' },
+    { id: 'hf:openai/gpt-oss-120b', label: 'GPT-OSS 120B (HF)' },
+    { id: 'hf:Qwen/Qwen3-235B-A22B-Instruct-2507', label: 'Qwen3 235B Instruct (HF)' },
+    { id: 'hf:Qwen/Qwen3-Coder-480B-A35B-Instruct', label: 'Qwen3 Coder 480B (HF)' },
+    { id: 'hf:Qwen/Qwen3-VL-235B-A22B-Instruct', label: 'Qwen3 VL 235B (HF)' },
+    { id: 'hf:zai-org/GLM-4.5', label: 'GLM 4.5 (HF)' },
+    { id: 'hf:zai-org/GLM-4.6', label: 'GLM 4.6 (HF)' },
+    { id: 'hf:deepseek-ai/DeepSeek-V3', label: 'DeepSeek V3 (HF)' },
+    { id: 'hf:Qwen/Qwen3-235B-A22B-Thinking-2507', label: 'Qwen3 235B Thinking (HF)' },
+  ],
   moonshot: [
     { id: 'kimi-k2.5', label: 'Kimi K2.5' },
     { id: 'kimi-k2-0905-preview', label: 'Kimi K2 0905 Preview' },
@@ -132,7 +171,11 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'mistral-large-latest', label: 'Mistral Large Latest' },
     { id: 'codestral-latest', label: 'Codestral Latest' },
   ],
-  zai: [{ id: 'glm-5', label: 'GLM-5' }],
+  zai: [
+    { id: 'glm-5', label: 'GLM-5' },
+    { id: 'glm-4.7', label: 'GLM-4.7' },
+    { id: 'glm-4.6', label: 'GLM-4.6' },
+  ],
   huggingface: [
     { id: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek R1' },
     { id: 'meta-llama/Llama-3.3-70B-Instruct', label: 'Llama 3.3 70B Instruct' },
@@ -156,6 +199,7 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'grok-code-fast-1', label: 'Grok Code Fast 1' },
   ],
   'github-copilot': [
+    { id: 'gpt-5.4', label: 'GPT-5.4' },
     { id: 'gpt-5.2', label: 'GPT-5.2' },
     { id: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
     { id: 'claude-sonnet-4.6', label: 'Claude Sonnet 4.6' },
@@ -169,6 +213,7 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'zai-glm-4.6', label: 'GLM 4.6 (Cerebras)' },
   ],
   kilocode: [
+    { id: 'kilo/auto', label: 'Kilo Auto' },
     { id: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6 (Kilo)' },
     { id: 'openai/gpt-5.4', label: 'GPT-5.4 (Kilo)' },
   ],
@@ -179,15 +224,16 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
     { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Preview)' },
   ],
   volcengine: [
-    { id: 'doubao-seed-1-8-251228', label: 'Doubao Seed 1.8' },
-    { id: 'doubao-seed-code-preview-251028', label: 'Doubao Seed Code Preview' },
-    { id: 'kimi-k2-5-260127', label: 'Kimi K2.5' },
-    { id: 'glm-4-7-251222', label: 'GLM 4.7' },
-    { id: 'deepseek-v3-2-251201', label: 'DeepSeek V3.2 128K' },
+    { id: 'doubao-seed-1-8', label: 'Doubao Seed 1.8' },
+    { id: 'doubao-seed-code-preview', label: 'Doubao Seed Code Preview' },
+    { id: 'kimi-k2.5', label: 'Kimi K2.5' },
+    { id: 'glm-4.7', label: 'GLM 4.7' },
+    { id: 'deepseek-v3.2', label: 'DeepSeek V3.2' },
   ],
   'volcengine-plan': [
     { id: 'ark-code-latest', label: 'ARK Code Latest' },
     { id: 'doubao-seed-code', label: 'Doubao Seed Code' },
+    { id: 'doubao-seed-code-preview', label: 'Doubao Seed Code Preview' },
     { id: 'kimi-k2.5', label: 'Kimi K2.5' },
     { id: 'kimi-k2-thinking', label: 'Kimi K2 Thinking' },
     { id: 'glm-4.7', label: 'GLM 4.7' },
@@ -222,7 +268,11 @@ export const MODELS_BY_PROVIDER: Partial<Record<ModelProvider, readonly ModelPre
   ],
   vllm: [{ id: 'your-model-id', label: 'Your model ID' }],
   lmstudio: [{ id: 'your-model-id', label: 'Your model ID' }],
-  xiaomi: [{ id: 'mimo-7b', label: 'MiMo 7B' }],
+  xiaomi: [
+    { id: 'mimo-v2-flash', label: 'MiMo V2 Flash' },
+    { id: 'mimo-v2-pro', label: 'MiMo V2 Pro' },
+    { id: 'mimo-v2-omni', label: 'MiMo V2 Omni' },
+  ],
   kuae: [{ id: 'GLM-4.7', label: 'GLM-4.7' }],
   chutes: [{ id: 'chutes-default', label: 'Chutes (pick in dashboard)' }],
 }

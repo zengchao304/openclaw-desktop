@@ -2,6 +2,17 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.3.1] - 2026-03-26
+
+### Fixed
+
+- **Upstream model auth (401):** Wizard-generated `auth.order` now uses **full profile IDs** (e.g. `minimax:global`) to match OpenClaw’s configuration reference and the LLM API “save profile” path. `addProfileToAuthOrder` / `removeProfileFromAuthOrder` normalize shorthand entries (`global` vs `minimax:global`) so the gateway resolves the same credential as `auth-profiles.json`.
+- **Xiaomi MiMo seed config:** Provider seed uses `https://api.xiaomimimo.com/v1` with `openai-completions`, aligned with upstream provider docs (was incorrectly pointed at an Anthropic-style path).
+
+### Changed
+
+- **Wizard model presets:** Provider/model dropdowns updated to match bundled OpenClaw **2026.3.23-2** (MiniMax M2.7 lineup, xAI Grok catalog, Synthetic `hf:*` IDs, Kilo `kilo/auto`, Volcengine naming, Vercel ordering, etc.). See `src/renderer/constants/provider-presets.ts`.
+
 ## [0.3.0] - 2026-03-25
 
 ### Fixed
