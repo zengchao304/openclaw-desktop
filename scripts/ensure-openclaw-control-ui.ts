@@ -7,11 +7,15 @@
  *
  * Note: Vite 8 + Rolldown native bindings often fail on GitHub `windows-latest`; CI builds UI on Linux
  * and merges `dist/control-ui` before `prepare-bundle` (see release workflow + ci-build-openclaw-control-ui).
+ *
+ * After `vite build`, we run a desktop-only esbuild pass on `dist/control-ui` (see transpile-control-ui-for-electron)
+ * so the UI runs inside Electron without changing upstream OpenClaw sources.
  */
 
 import { mkdir, rm, cp, writeFile, readdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFileSync, execSync } from 'node:child_process'
+import { transpileControlUiForElectronEmbedded } from './lib/transpile-control-ui-for-electron.ts'
 
 const GITHUB_REPO = 'openclaw/openclaw'
 
@@ -122,6 +126,9 @@ export async function downloadAndBuildOpenClawControlUiAt(
       cwd: uiDest,
       stdio: 'inherit',
     })
+
+    const controlUiDist = join(openclawRoot, 'dist', 'control-ui')
+    await transpileControlUiForElectronEmbedded(controlUiDist)
 
     const indexHtml = join(openclawRoot, 'dist', 'control-ui', 'index.html')
     if (!(await fileExists(indexHtml))) {

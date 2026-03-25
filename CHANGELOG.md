@@ -2,6 +2,13 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.2.21] - 2026-03-25
+
+### Fixed
+
+- **Control UI (embedded gateway dashboard):** After the upstream Vite build, run a **desktop-only** esbuild pass on `dist/control-ui` (`target: chrome130`) so TC39 decorators and similar syntax no longer crash the Electron renderer (black screen). No changes to the OpenClaw upstream repo.
+- **In-app updates:** Map shell “stable” channel to electron-updater channel **`latest`** so GitHub **`latest.yml`** is fetched instead of a non-existent **`stable.yml`**.
+
 ## [0.2.20] - 2026-03-25
 
 ### Changed

@@ -48,16 +48,18 @@ If you've been searching for *how to install OpenClaw on Windows*, *how to run O
 ## Quick Start
 
 1. Download the latest installer from [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
-2. Run `OpenClaw-Setup-0.2.20.exe`
+2. Run `OpenClaw-Setup-0.2.21.exe`
 3. Finish the setup wizard (provider → channel → gateway)
 4. Launch from Start Menu or Desktop shortcut
 
 **System:** Windows 10/11 x64 · ~350 MB free space · Internet for API calls
 
-## What's New in v0.2.20
+## What's New in v0.2.21
 
-- **Electron 41 / Chromium 146:** Improves compatibility with upstream gateway Control UI assets that use modern JavaScript syntax.
-- **Gateway header patch:** CSP relaxation applies only to HTML document responses, not to script subresources.
+- **Control UI for Electron:** Post-process bundled `dist/control-ui` with esbuild (desktop repo only) so embedded Chromium does not choke on raw decorators / very new JS from the Vite build.
+- **Updates:** Stable channel now resolves **`latest.yml`** on GitHub Releases (fixes 404 on `stable.yml`).
+
+Earlier highlights (v0.2.20): Electron 41 + scoped gateway CSP patch — see [CHANGELOG.md](CHANGELOG.md).
 
 Earlier highlights (v0.2.18): Pinned OpenClaw docs + Release CI `OPENCLAW_SKIP_NPM_LATEST_CHECK` — see [CHANGELOG.md](CHANGELOG.md).
 
@@ -113,8 +115,8 @@ OpenClaw Desktop is a **community-maintained Windows distribution** for the Open
 
 | | |
 |---|---|
-| **Release** | `v0.2.20` |
-| **Installer** | `OpenClaw-Setup-0.2.20.exe` |
+| **Release** | `v0.2.21` |
+| **Installer** | `OpenClaw-Setup-0.2.21.exe` |
 | **Platform** | Windows 10/11 x64 |
 | **Includes** | Electron shell, portable Node.js, bundled OpenClaw |
 | **Extras** | SHA-256 checksum, `latest.yml` for in-app updates |
@@ -143,7 +145,7 @@ If the pending list is empty but you have a pairing code, use the code-based app
 <details>
 <summary><strong>How do I install OpenClaw on Windows?</strong></summary>
 
-Download `OpenClaw-Setup-0.2.20.exe` from the [latest release](https://github.com/agentkernel/openclaw-desktop/releases/latest) and run it. That's it — no `npm`, no system-wide Node.js, no terminal commands needed.
+Download `OpenClaw-Setup-0.2.21.exe` from the [latest release](https://github.com/agentkernel/openclaw-desktop/releases/latest) and run it. That's it — no `npm`, no system-wide Node.js, no terminal commands needed.
 </details>
 
 <details>
@@ -195,7 +197,7 @@ pnpm run prepare-bundle
 pnpm run package:win   # Output: dist/OpenClaw-Setup-<version>.exe
 ```
 
-**Bundled OpenClaw:** Pinned in `package.json` (`openclawBundleVersion`). After `prepare-bundle`, see `bundledOpenClawVersion` in [`resources/bundle-manifest.json`](resources/bundle-manifest.json) (currently **2026.3.23-2** for desktop **v0.2.20**). Local checks: `pnpm run check-openclaw-versions` (omit `OPENCLAW_SKIP_NPM_LATEST_CHECK` to also compare against npm `latest`).
+**Bundled OpenClaw:** Pinned in `package.json` (`openclawBundleVersion`). After `prepare-bundle`, see `bundledOpenClawVersion` in [`resources/bundle-manifest.json`](resources/bundle-manifest.json) (currently **2026.3.23-2** for desktop **v0.2.21**). Local checks: `pnpm run check-openclaw-versions` (omit `OPENCLAW_SKIP_NPM_LATEST_CHECK` to also compare against npm `latest`).
 
 **Related docs:** [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 

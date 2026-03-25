@@ -240,6 +240,15 @@ async function main(): Promise<void> {
   }
   console.log('  [verify] structure OK')
 
+  const controlUiRoot = join(DEST_OPENCLAW, 'dist', 'control-ui')
+  if (await fileExists(controlUiRoot)) {
+    const { transpileControlUiForElectronEmbedded } = await import(
+      './lib/transpile-control-ui-for-electron.ts'
+    )
+    console.log('  [control-ui] lowering JS for embedded Chromium (desktop post-process)...')
+    await transpileControlUiForElectronEmbedded(controlUiRoot)
+  }
+
   // --- Runtime verification ---
   console.log('  [verify] testing openclaw with bundled node...')
   const destNodeExe = join(DEST_NODE, 'node.exe')

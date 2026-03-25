@@ -18,6 +18,14 @@ let currentCancellationToken: CancellationToken | null = null
  */
 type ReadShellConfig = () => { updateChannel?: string }
 
+/**
+ * Shell setting `stable` maps to electron-updater channel `latest` so we fetch `latest.yml`
+ * (electron-builder default). Using channel `stable` would request `stable.yml` (404 on GitHub).
+ */
+function electronUpdaterChannel(shellChannel: string | undefined): string {
+  return shellChannel === 'beta' ? 'beta' : 'latest'
+}
+
 export function initAutoUpdater(
   readShellConfig: ReadShellConfig,
   send: SendToRenderer,
@@ -30,7 +38,7 @@ export function initAutoUpdater(
 
   try {
     const config = readShellConfig()
-    autoUpdater.channel = config?.updateChannel === 'beta' ? 'beta' : 'stable'
+    autoUpdater.channel = electronUpdaterChannel(config?.updateChannel)
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
 
@@ -79,7 +87,7 @@ export async function checkForUpdatesWithAutoUpdater(
 
   try {
     const config = readShellConfig()
-    autoUpdater.channel = config?.updateChannel === 'beta' ? 'beta' : 'stable'
+    autoUpdater.channel = electronUpdaterChannel(config?.updateChannel)
 
     const result = await autoUpdater.checkForUpdates()
     if (!result?.updateInfo) {
