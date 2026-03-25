@@ -7,6 +7,7 @@ All notable changes to OpenClaw Desktop will be documented in this file.
 ### Fixed
 
 - **Embedded Control UI:** Removed the WebSocket **operator pre-probe** (`gateway:probeOperator`) that blocked the main iframe until a main-process RPC connect succeeded. On some gateway builds the probe never completed (repeated `[ws] closed before connect` / code 1005) while the browser Control UI could still connect, which left the shell stuck on **Gateway starting**. The shell again mounts the Control UI iframe as soon as the gateway is **running** and the control URL (with token hash) is known—same as pre-0.3.0 behavior, so the console always loads.
+- **Config read timeout:** When building the control URL, `config:read` is raced with a **10s** timeout so a hung IPC cannot leave the shell on the loading screen indefinitely (falls back to a URL without `#token=`).
 
 ## [0.2.22] - 2026-03-25
 

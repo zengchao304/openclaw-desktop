@@ -131,10 +131,17 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
 
         setGatewayPort(status.port)
         void (async () => {
+          const port = status.port
           try {
-            const config = await window.electronAPI.configRead()
+            // Never block the console on a hung config IPC — fall back to URL without #token after 10s.
+            const config = await Promise.race([
+              window.electronAPI.configRead(),
+              new Promise<undefined>((resolve) => {
+                setTimeout(() => resolve(undefined), 10_000)
+              }),
+            ])
             const token = config?.gateway?.auth?.token
-            const url = buildControlUIUrl(status.port, token)
+            const url = buildControlUIUrl(port, token)
             if (shouldReloadControlUi) {
               setControlUiReloadKey((k) => k + 1)
             }
@@ -143,7 +150,7 @@ export function EmbeddedShellLayout({ activePanel, onPanelChange }: EmbeddedShel
             if (shouldReloadControlUi) {
               setControlUiReloadKey((k) => k + 1)
             }
-            setControlUrl(buildControlUIUrl(status.port))
+            setControlUrl(buildControlUIUrl(port))
           }
         })()
       } else {
