@@ -3,7 +3,7 @@
  * for upload as a workflow artifact. Windows packaging merges this path to avoid Vite/Rolldown on win-latest.
  */
 
-import { mkdir, rm, access } from 'node:fs/promises'
+import { mkdir, rm, access, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { downloadAndBuildOpenClawControlUiAt } from './ensure-openclaw-control-ui.ts'
@@ -19,10 +19,25 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
+async function resolveOpenclawBundleVersion(): Promise<string> {
+  const env = process.env.OPENCLAW_DESKTOP_BUNDLE_VERSION?.trim()
+  if (env) return env
+  try {
+    const raw = await readFile(join(process.cwd(), 'package.json'), 'utf8')
+    const pkg = JSON.parse(raw) as { openclawBundleVersion?: string }
+    const v = pkg.openclawBundleVersion?.trim()
+    if (v) return v
+  } catch {
+    // ignore
+  }
+  console.warn(
+    '  [warn] No openclawBundleVersion in package.json — using npm openclaw@latest (may diverge from Windows bundle job).',
+  )
+  return execSync('npm view openclaw version', { encoding: 'utf8' }).trim()
+}
+
 async function main(): Promise<void> {
-  const version =
-    process.env.OPENCLAW_DESKTOP_BUNDLE_VERSION?.trim() ||
-    execSync('npm view openclaw version', { encoding: 'utf8' }).trim()
+  const version = await resolveOpenclawBundleVersion()
 
   console.log(`\nci-build-openclaw-control-ui: OpenClaw ${version}\n`)
 

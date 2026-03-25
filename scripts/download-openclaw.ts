@@ -1,7 +1,7 @@
 /**
  * Pre-install OpenClaw npm package to build/openclaw/
  * Usage: pnpm run download-openclaw [-- <version>]
- * Default: `latest` from npm. Newer npm tarballs omit `dist/control-ui/`; we fetch matching
+ * Default: `package.json` field `openclawBundleVersion`, else npm `latest`. Newer npm tarballs omit `dist/control-ui/`; we fetch matching
  * GitHub tag sources and run Vite (see ensure-openclaw-control-ui.ts).
  */
 
@@ -18,6 +18,7 @@ import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { ensureOpenClawControlUiBuilt } from './ensure-openclaw-control-ui.ts'
 
+/** Fallback when package.json has no `openclawBundleVersion` (discouraged — pin in package.json). */
 const DEFAULT_VERSION = 'latest'
 const BUILD_DIR = join(process.cwd(), 'build')
 const OPENCLAW_DIR = join(BUILD_DIR, 'openclaw')
@@ -50,6 +51,18 @@ async function readJson<T = unknown>(p: string): Promise<T> {
   return JSON.parse(await readFile(p, 'utf8')) as T
 }
 
+async function readOpenclawBundleVersionFromRootPackage(): Promise<string | null> {
+  try {
+    const pkg = await readJson<{ openclawBundleVersion?: string }>(
+      join(process.cwd(), 'package.json'),
+    )
+    const v = pkg.openclawBundleVersion?.trim()
+    return v || null
+  } catch {
+    return null
+  }
+}
+
 async function needsCommanderFix(openclawDir: string): Promise<boolean> {
   try {
     const pkg = await readJson<{ dependencies?: Record<string, string> }>(
@@ -79,10 +92,22 @@ function resolveVersion(requested: string): string {
 }
 
 async function main(): Promise<void> {
+  const fromRootPkg = await readOpenclawBundleVersionFromRootPackage()
   const requestedVersion =
     process.argv[2]?.trim() ||
     process.env.OPENCLAW_DESKTOP_BUNDLE_VERSION?.trim() ||
+    fromRootPkg ||
     DEFAULT_VERSION
+
+  if (
+    requestedVersion === DEFAULT_VERSION &&
+    !process.argv[2]?.trim() &&
+    !process.env.OPENCLAW_DESKTOP_BUNDLE_VERSION?.trim()
+  ) {
+    console.warn(
+      '  [warn] No openclawBundleVersion in package.json — using npm `latest` (time drift risk). Pin OpenClaw in package.json.',
+    )
+  }
 
   console.log(`\ndownload-openclaw: OpenClaw (${requestedVersion})\n`)
 
@@ -98,8 +123,14 @@ async function main(): Promise<void> {
   console.log(`  [resolve] target version: ${version}`)
   if (requestedVersion === DEFAULT_VERSION || /^latest$/i.test(requestedVersion)) {
     console.log(
-      '  [policy] Installing from npm dist-tag `latest` (override: CLI arg or OPENCLAW_DESKTOP_BUNDLE_VERSION).',
+      '  [policy] Installing from npm dist-tag `latest` (override: CLI arg, env, or package.json openclawBundleVersion).',
     )
+  } else if (
+    !process.argv[2]?.trim() &&
+    !process.env.OPENCLAW_DESKTOP_BUNDLE_VERSION?.trim() &&
+    fromRootPkg
+  ) {
+    console.log('  [policy] Using pinned openclawBundleVersion from package.json.')
   }
 
   // Idempotent: skip if already installed with matching version (+ commander + Control UI)
