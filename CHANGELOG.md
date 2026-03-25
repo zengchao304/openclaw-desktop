@@ -2,6 +2,13 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.2.16] - 2026-03-25
+
+### Added
+
+- **Install integrity (packaged):** Pre-start check compares `resources/bundle-manifest.json` `shellVersion` to `app.getVersion()`, and fails fast when the manifest is missing, unreadable, or mismatched (mixed/stale installer layout).
+- **Bundle validation:** `validateOpenclawResources` now verifies Control UI `index.html` references an on-disk module script under `dist/control-ui`, catching incomplete or broken UI bundles before launch.
+
 ## [0.2.15] - 2026-03-25
 
 ### Changed

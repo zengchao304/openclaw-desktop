@@ -22,6 +22,33 @@ function readEntryPath(openclawDir: string): string | null {
   return null
 }
 
+function validateControlUiBundle(openclawDir: string): string[] {
+  const missing: string[] = []
+  const indexPath = path.join(openclawDir, 'dist', 'control-ui', 'index.html')
+  if (!fileExists(indexPath)) {
+    missing.push('dist/control-ui/index.html')
+    return missing
+  }
+
+  try {
+    const html = fs.readFileSync(indexPath, 'utf-8')
+    const scriptMatch = html.match(/<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["']/i)
+    if (!scriptMatch || !scriptMatch[1]) {
+      missing.push('dist/control-ui/assets/index-*.js (not referenced)')
+      return missing
+    }
+    const rel = scriptMatch[1].replace(/^\.\//, '')
+    const scriptPath = path.join(openclawDir, 'dist', 'control-ui', rel)
+    if (!fileExists(scriptPath)) {
+      missing.push(`dist/control-ui/${rel}`)
+    }
+  } catch {
+    missing.push('dist/control-ui/index.html (read failed)')
+  }
+
+  return missing
+}
+
 export function validateOpenclawResources(openclawDir: string): OpenClawValidationResult {
   const missing: string[] = []
 
@@ -53,6 +80,8 @@ export function validateOpenclawResources(openclawDir: string): OpenClawValidati
   } catch {
     missing.push('dist/entry.(m)js (read failed)')
   }
+
+  missing.push(...validateControlUiBundle(openclawDir))
 
   return { ok: missing.length === 0, missing }
 }
