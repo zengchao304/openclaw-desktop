@@ -4,6 +4,12 @@ All notable changes to OpenClaw Desktop will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-27
+
+### Fixed
+
+- **Release metadata:** `resources/bundle-manifest.json` `shellVersion` is aligned with `package.json` so `check-openclaw-versions` / packaged builds report the correct shell version (follow-up to v0.4.4 tag pointing at a commit before manifest sync).
+
 ## [0.4.4] - 2026-03-27
 
 ### Fixed
