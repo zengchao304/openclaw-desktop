@@ -12,6 +12,7 @@ import type { OpenClawConfig } from '../../shared/types.js'
 import { getBundledOpenClawDir, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 import { normalizeAuthOrderEntry } from '../providers/provider-config.js'
+import { saveAuthProfile } from '../providers/auth-profile-store.js'
 
 function getOpenClawConfigPath(): string {
   return path.join(getUserDataDir(), OPENCLAW_CONFIG_FILE)
@@ -251,6 +252,64 @@ function migrateMinimaxAuthHeaderToXApiKey(
 }
 
 /**
+ * Gateway resolves upstream model auth as: auth-profiles.json → env → models.providers.*.apiKey.
+ * If the user edits only openclaw.json, auth-profiles can still hold an older minimax:global key and wins → HTTP 401.
+ * When models.providers.minimax.apiKey is set, sync it to minimax:global and remove the inline copy (single source of truth in auth-profiles).
+ */
+function migrateMinimaxInlineApiKeyToAuthProfile(
+  config: OpenClawConfig,
+): { config: OpenClawConfig; changed: boolean } {
+  const providers = config.models?.providers
+  if (!providers || typeof providers !== 'object') {
+    return { config, changed: false }
+  }
+  const minimax = providers.minimax
+  if (!minimax || typeof minimax !== 'object' || Array.isArray(minimax)) {
+    return { config, changed: false }
+  }
+  const rawKey = (minimax as Record<string, unknown>).apiKey
+  if (typeof rawKey !== 'string' || !rawKey.trim()) {
+    return { config, changed: false }
+  }
+  const key = rawKey.trim()
+  try {
+    saveAuthProfile('minimax:global', 'minimax', key)
+  } catch (err) {
+    console.warn(
+      '[config] Could not sync models.providers.minimax.apiKey to auth-profiles (minimax:global):',
+      err instanceof Error ? err.message : String(err),
+    )
+    return { config, changed: false }
+  }
+
+  const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
+  const mp = next.models?.providers?.minimax as Record<string, unknown> | undefined
+  if (!mp || typeof mp !== 'object') return { config, changed: false }
+  delete mp.apiKey
+
+  next.auth = next.auth ?? {}
+  next.auth.profiles = next.auth.profiles ?? {}
+  const profiles = next.auth.profiles as Record<string, unknown>
+  if (!profiles['minimax:global']) {
+    profiles['minimax:global'] = {
+      provider: 'minimax',
+      mode: 'api_key',
+    }
+  }
+  next.auth.order = next.auth.order ?? {}
+  const orderMap = next.auth.order as Record<string, string[]>
+  const miniOrder = orderMap.minimax
+  if (
+    !Array.isArray(miniOrder) ||
+    !miniOrder.some((e) => normalizeAuthOrderEntry('minimax', e) === 'minimax:global')
+  ) {
+    orderMap.minimax = ['minimax:global', ...(Array.isArray(miniOrder) ? miniOrder : [])]
+  }
+
+  return { config: next, changed: true }
+}
+
+/**
  * OpenClaw 2026.1.29+: gateway auth mode `none` removed — gateway must use token or password.
  * Migrate legacy `mode: "none"` using whichever credential field is present.
  */
@@ -414,6 +473,8 @@ export function readOpenClawConfig(): OpenClawConfig {
       cfg = migratedAuthHeader.config
       const migratedMinimaxAuthHeader = migrateMinimaxAuthHeaderToXApiKey(cfg)
       cfg = migratedMinimaxAuthHeader.config
+      const migratedMinimaxSync = migrateMinimaxInlineApiKeyToAuthProfile(cfg)
+      cfg = migratedMinimaxSync.config
       if (
         migratedProviders.changed ||
         migratedFeishu.changed ||
@@ -422,7 +483,8 @@ export function readOpenClawConfig(): OpenClawConfig {
         migratedAuthNone.changed ||
         migratedAuthOrder.changed ||
         migratedAuthHeader.changed ||
-        migratedMinimaxAuthHeader.changed
+        migratedMinimaxAuthHeader.changed ||
+        migratedMinimaxSync.changed
       ) {
         try {
           writeOpenClawConfig(cfg)
@@ -456,6 +518,11 @@ export function readOpenClawConfig(): OpenClawConfig {
           if (migratedMinimaxAuthHeader.changed) {
             console.info(
               '[config] Set models.providers.minimax.authHeader=false (Anthropic x-api-key) for MiniMax in openclaw.json',
+            )
+          }
+          if (migratedMinimaxSync.changed) {
+            console.info(
+              '[config] Synced models.providers.minimax.apiKey → auth-profiles (minimax:global) and removed duplicate from openclaw.json',
             )
           }
         } catch (err) {

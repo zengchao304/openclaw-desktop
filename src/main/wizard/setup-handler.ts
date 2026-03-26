@@ -12,7 +12,7 @@ import type {
 } from '../../shared/types.js'
 import type { GatewayProcessManager } from '../gateway/index.js'
 import { writeAuthProfile, writeAuthProfileToken } from './auth-profile-writer.js'
-import { runConfigValidate } from '../config/index.js'
+import { runConfigValidate, readOpenClawConfig } from '../config/index.js'
 import { getUserDataDir } from '../utils/paths.js'
 import path from 'node:path'
 
@@ -340,7 +340,6 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
       baseUrl: `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayId}/anthropic`,
       api: 'anthropic-messages',
       authHeader: true,
-      ...(state.modelConfig.apiKey.trim() ? { apiKey: state.modelConfig.apiKey.trim() } : {}),
       models: [buildDefaultProviderModel(modelId)],
     }
     return
@@ -364,10 +363,6 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
   config.models = config.models ?? {}
   config.models.mode = config.models.mode ?? 'merge'
   config.models.providers = config.models.providers ?? {}
-  const apiKey =
-    API_KEY_PROVIDER_SET.has(provider) && state.modelConfig.apiKey?.trim()
-      ? state.modelConfig.apiKey.trim()
-      : undefined
   const moonshotBaseUrl =
     state.modelConfig.moonshotRegion === 'cn' || rawProvider === 'moonshot-cn'
       ? 'https://api.moonshot.cn/v1'
@@ -375,7 +370,6 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
   if (provider === 'moonshot') {
     config.models.providers[seed.providerId] = {
       ...buildMoonshotProvider(moonshotBaseUrl),
-      ...(apiKey ? { apiKey } : {}),
     }
     return
   }
@@ -429,7 +423,6 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
     ...(config.models.providers[seed.providerId] ?? {}),
     baseUrl: seed.baseUrl,
     ...(seed.api ? { api: seed.api } : {}),
-    ...(apiKey ? { apiKey } : {}),
     ...(seed.authHeader !== undefined ? { authHeader: seed.authHeader } : {}),
     models: [buildDefaultProviderModel(modelId)],
   }
@@ -618,6 +611,7 @@ export async function handleWizardCompleteSetup(
   try {
     const config = buildOpenClawConfig(sanitized)
     deps.writeOpenClawConfig(config)
+    readOpenClawConfig()
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[wizard] Config write failed:', message)

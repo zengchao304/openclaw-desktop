@@ -114,7 +114,7 @@ import { tailLogsWithGateway } from '../logs/index.js'
 import { getLogAggregator } from '../diagnostics/log-aggregator.js'
 import { runBackupCreateCli, runBackupVerifyCli } from '../backup/index.js'
 import { syncLoginItemToSystem } from '../login-item/index.js'
-import { runConfigValidate } from '../config/index.js'
+import { runConfigValidate, readOpenClawConfig } from '../config/index.js'
 import {
   approveFeishuPairing,
   listApprovedFeishuSenders,
@@ -249,6 +249,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     wrapHandler('CONFIG_WRITE', (config: unknown) => {
       const validated = validatePlainObject(config, 'config')
       deps.writeOpenClawConfig(validated as OpenClawConfig)
+      readOpenClawConfig()
     }),
   )
 
@@ -553,6 +554,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       const current = deps.readOpenClawConfig()
       const next = saveProviderConfig(current, providerId, config)
       deps.writeOpenClawConfig(next)
+      readOpenClawConfig()
     }),
   )
 
