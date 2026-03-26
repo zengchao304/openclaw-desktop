@@ -426,6 +426,13 @@ function ensureProviderSeedConfig(config: OpenClawConfig, state: WizardState): v
     ...(seed.authHeader !== undefined ? { authHeader: seed.authHeader } : {}),
     models: [buildDefaultProviderModel(modelId)],
   }
+  // Match working openclaw.json: keep apiKey in models.providers.minimax alongside auth-profiles.
+  if (provider === 'minimax' && state.modelConfig.apiKey.trim()) {
+    config.models.providers[seed.providerId] = {
+      ...(config.models.providers[seed.providerId] ?? {}),
+      apiKey: state.modelConfig.apiKey.trim(),
+    }
+  }
 }
 
 function buildOpenClawConfig(state: WizardState): OpenClawConfig {
@@ -438,6 +445,8 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
         ? 'moonshot'
         : rawProvider
   const modelRef = `${providerId}/${modelId}`
+  /** MiniMax onboard-style configs use bare model id (matches working openclaw.json); other providers use provider/model. */
+  const primaryModelRef = providerId === 'minimax' ? modelId : modelRef
   const config: OpenClawConfig = {
     gateway: {
       mode: 'local',
@@ -456,7 +465,7 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
     agents: {
       defaults: {
         model: {
-          primary: modelRef,
+          primary: primaryModelRef,
         },
         workspace: path.join(getUserDataDir(), 'workspace'),
       },
@@ -541,6 +550,9 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
   ) {
     const profileName = providerForAuth === 'minimax' ? 'global' : 'default'
     const profileId = `${authProviderId}:${profileName}`
+    /** MiniMax: auth.order uses shorthand `["global"]` (onboard / working configs); others use full profile ids. */
+    const orderEntries =
+      providerForAuth === 'minimax' ? [profileName] : [profileId]
     config.auth = {
       ...(config.auth ?? {}),
       profiles: {
@@ -552,8 +564,7 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
       },
       order: {
         ...(config.auth?.order ?? {}),
-        // Full profile id (matches OpenClaw auth.order + providersSaveProfile)
-        [authProviderId]: [profileId],
+        [authProviderId]: orderEntries,
       },
     }
   }

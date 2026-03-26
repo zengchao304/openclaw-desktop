@@ -136,6 +136,19 @@ function migrateDesktopControlUiAllowInsecureAuth(
 }
 
 /**
+ * Working MiniMax configs use `auth.order.minimax: ["global"]` (shorthand). Normalize to that
+ * when every entry resolves to the same profile as `minimax:global`.
+ */
+function migrateMinimaxAuthOrderEntries(entries: string[]): string[] {
+  const normalized = entries.map((e) => normalizeAuthOrderEntry('minimax', String(e)))
+  const uniq = [...new Set(normalized)]
+  if (uniq.length === 1 && uniq[0] === 'minimax:global') {
+    return ['global']
+  }
+  return normalized
+}
+
+/**
  * OpenClaw resolves credentials by auth.order profile ids (e.g. openai:default).
  * Legacy configs may list shorthand entries (default) or mismatch auth-profiles keys — normalize on load.
  */
@@ -151,6 +164,14 @@ function migrateAuthOrderFullProfileIds(
   for (const [providerId, entries] of Object.entries(order)) {
     if (!Array.isArray(entries)) {
       nextOrder[providerId] = entries as unknown as string[]
+      continue
+    }
+    if (providerId === 'minimax') {
+      const nextMin = migrateMinimaxAuthOrderEntries(entries)
+      if (JSON.stringify(entries) !== JSON.stringify(nextMin)) {
+        changed = true
+      }
+      nextOrder[providerId] = nextMin
       continue
     }
     const normalized = entries.map((e) => normalizeAuthOrderEntry(providerId, String(e)))
@@ -254,7 +275,7 @@ function migrateMinimaxAuthHeaderToXApiKey(
 /**
  * Gateway resolves upstream model auth as: auth-profiles.json → env → models.providers.*.apiKey.
  * If the user edits only openclaw.json, auth-profiles can still hold an older minimax:global key and wins → HTTP 401.
- * When models.providers.minimax.apiKey is set, sync it to minimax:global and remove the inline copy (single source of truth in auth-profiles).
+ * When models.providers.minimax.apiKey is set, sync it to minimax:global; keep the inline key in openclaw.json (onboard-style).
  */
 function migrateMinimaxInlineApiKeyToAuthProfile(
   config: OpenClawConfig,
@@ -283,9 +304,8 @@ function migrateMinimaxInlineApiKeyToAuthProfile(
   }
 
   const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
-  const mp = next.models?.providers?.minimax as Record<string, unknown> | undefined
-  if (!mp || typeof mp !== 'object') return { config, changed: false }
-  delete mp.apiKey
+  // Keep models.providers.minimax.apiKey on disk (matches working onboard-style openclaw.json); auth-profiles
+  // still holds the authoritative copy for the gateway.
 
   next.auth = next.auth ?? {}
   next.auth.profiles = next.auth.profiles ?? {}
@@ -303,10 +323,11 @@ function migrateMinimaxInlineApiKeyToAuthProfile(
     !Array.isArray(miniOrder) ||
     !miniOrder.some((e) => normalizeAuthOrderEntry('minimax', e) === 'minimax:global')
   ) {
-    orderMap.minimax = ['minimax:global', ...(Array.isArray(miniOrder) ? miniOrder : [])]
+    orderMap.minimax = ['global', ...(Array.isArray(miniOrder) ? miniOrder : [])]
   }
 
-  return { config: next, changed: true }
+  const mutated = JSON.stringify(next) !== JSON.stringify(config)
+  return { config: next, changed: mutated }
 }
 
 /**
