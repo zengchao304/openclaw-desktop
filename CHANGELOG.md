@@ -2,6 +2,13 @@
 
 All notable changes to OpenClaw Desktop will be documented in this file.
 
+## [0.4.1] - 2026-03-26
+
+### Changed
+
+- **Setup wizard:** Before writing `openclaw.json` and `auth-profiles.json`, the wizard now **sanitizes** (trims) API keys, model IDs, custom provider fields, Cloudflare gateway fields, and the gateway auth token so pasted values match runtime configuration.
+- **Custom provider:** Wizard output now includes an **`agents.defaults.models`** alias entry for the selected model, consistent with built-in provider seeds from `ensureProviderSeedConfig`.
+
 ## [0.3.4] - 2026-03-26
 
 ### Fixed

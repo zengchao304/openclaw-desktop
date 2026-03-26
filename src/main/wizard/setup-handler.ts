@@ -25,6 +25,26 @@ export interface WizardCompleteResult {
   validationResult?: { valid: boolean; issues: Array<{ path: string; message: string; allowedValues?: string[] }> }
 }
 
+/** Trim pasted secrets / IDs so openclaw.json and auth-profiles match what the user intended. */
+function sanitizeWizardState(state: WizardState): WizardState {
+  const mc = state.modelConfig
+  const modelConfig: WizardState['modelConfig'] = {
+    ...mc,
+    apiKey: mc.apiKey.trim(),
+    modelId: mc.modelId.trim(),
+    ...(mc.customProviderId !== undefined ? { customProviderId: mc.customProviderId.trim() } : {}),
+    ...(mc.customBaseUrl !== undefined ? { customBaseUrl: mc.customBaseUrl.trim() } : {}),
+    ...(mc.cloudflareAccountId !== undefined ? { cloudflareAccountId: mc.cloudflareAccountId.trim() } : {}),
+    ...(mc.cloudflareGatewayId !== undefined ? { cloudflareGatewayId: mc.cloudflareGatewayId.trim() } : {}),
+  }
+  const gw = state.gatewayConfig
+  const gatewayConfig: WizardState['gatewayConfig'] = {
+    ...gw,
+    authToken: gw.authToken.trim(),
+  }
+  return { ...state, modelConfig, gatewayConfig }
+}
+
 interface SetupDeps {
   writeOpenClawConfig: (config: OpenClawConfig) => void
   readShellConfig: () => ShellConfig
@@ -491,6 +511,15 @@ function buildOpenClawConfig(state: WizardState): OpenClawConfig {
     if (baseUrl) {
       const thirdPartyAnthropic =
         compatibility === 'anthropic' && !baseUrl.includes('api.anthropic.com')
+      const customModelRef = `${providerId}/${modelId}`
+      config.agents = config.agents ?? {}
+      config.agents.defaults = config.agents.defaults ?? {}
+      config.agents.defaults.models = {
+        ...(config.agents.defaults.models ?? {}),
+        [customModelRef]: {
+          alias: modelId,
+        },
+      }
       config.models = {
         mode: 'merge',
         providers: {
@@ -584,9 +613,10 @@ export async function handleWizardCompleteSetup(
   state: WizardState,
   deps: SetupDeps,
 ): Promise<WizardCompleteResult> {
+  const sanitized = sanitizeWizardState(state)
   // 1. Write openclaw.json
   try {
-    const config = buildOpenClawConfig(state)
+    const config = buildOpenClawConfig(sanitized)
     deps.writeOpenClawConfig(config)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -596,23 +626,23 @@ export async function handleWizardCompleteSetup(
 
   // 2. Write auth-profiles.json (skip for custom provider; stored in openclaw.json)
   if (
-    state.modelConfig.provider !== 'custom' &&
-    (API_KEY_PROVIDER_SET.has(state.modelConfig.provider) || state.modelConfig.provider === 'moonshot-cn') &&
-    state.modelConfig.apiKey.trim()
+    sanitized.modelConfig.provider !== 'custom' &&
+    (API_KEY_PROVIDER_SET.has(sanitized.modelConfig.provider) || sanitized.modelConfig.provider === 'moonshot-cn') &&
+    sanitized.modelConfig.apiKey.trim()
   ) {
     try {
-      const provider = resolveAuthProviderId(state.modelConfig.provider)
-      const profileName = state.modelConfig.provider === 'minimax' ? 'global' : 'default'
+      const provider = resolveAuthProviderId(sanitized.modelConfig.provider)
+      const profileName = sanitized.modelConfig.provider === 'minimax' ? 'global' : 'default'
       const metadata =
-        state.modelConfig.provider === 'cloudflare-ai-gateway' &&
-          state.modelConfig.cloudflareAccountId?.trim() &&
-          state.modelConfig.cloudflareGatewayId?.trim()
+        sanitized.modelConfig.provider === 'cloudflare-ai-gateway' &&
+          sanitized.modelConfig.cloudflareAccountId?.trim() &&
+          sanitized.modelConfig.cloudflareGatewayId?.trim()
           ? {
-              accountId: state.modelConfig.cloudflareAccountId.trim(),
-              gatewayId: state.modelConfig.cloudflareGatewayId.trim(),
+              accountId: sanitized.modelConfig.cloudflareAccountId.trim(),
+              gatewayId: sanitized.modelConfig.cloudflareGatewayId.trim(),
             }
           : undefined
-      writeAuthProfile(provider, state.modelConfig.apiKey, { profileName, metadata })
+      writeAuthProfile(provider, sanitized.modelConfig.apiKey, { profileName, metadata })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('[wizard] Auth profile write failed:', message)
@@ -623,7 +653,7 @@ export async function handleWizardCompleteSetup(
       }
     }
   }
-  if (state.modelConfig.provider === 'copilot-proxy') {
+  if (sanitized.modelConfig.provider === 'copilot-proxy') {
     try {
       writeAuthProfileToken('copilot-proxy:local', 'copilot-proxy', 'n/a')
     } catch (err) {
@@ -640,8 +670,8 @@ export async function handleWizardCompleteSetup(
   // 3. Sync shellConfig.lastGatewayPort so WindowManager uses the correct port
   try {
     const shellConfig = deps.readShellConfig()
-    if (shellConfig.lastGatewayPort !== state.gatewayConfig.port) {
-      deps.writeShellConfig({ ...shellConfig, lastGatewayPort: state.gatewayConfig.port })
+    if (shellConfig.lastGatewayPort !== sanitized.gatewayConfig.port) {
+      deps.writeShellConfig({ ...shellConfig, lastGatewayPort: sanitized.gatewayConfig.port })
     }
   } catch (err) {
     console.warn('[wizard] shellConfig sync warning (non-fatal):', err instanceof Error ? err.message : String(err))
@@ -673,10 +703,10 @@ export async function handleWizardCompleteSetup(
 
   // 5. Start Gateway with the wizard-configured port, bind, and token (--token / --auth token)
   try {
-    const token = state.gatewayConfig.authToken?.trim()
+    const token = sanitized.gatewayConfig.authToken?.trim()
     await deps.gatewayManager.start({
-      port: state.gatewayConfig.port,
-      bind: state.gatewayConfig.bind,
+      port: sanitized.gatewayConfig.port,
+      bind: sanitized.gatewayConfig.bind,
       token: token || undefined,
       force: false, // First wizard completion: do not force port takeover
     })
