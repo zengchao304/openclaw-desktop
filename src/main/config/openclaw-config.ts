@@ -103,8 +103,22 @@ function migrateLegacyProviderConfig(config: OpenClawConfig): { config: OpenClaw
   return { config: next, changed: true }
 }
 
-/** Narrow type for reading `controlUi` without importing a circular `GatewayConfig` reference. */
-type GatewayConfigLike = { controlUi?: unknown; mode?: string }
+/** Narrow type for reading `controlUi` / `bind` without a heavy import cycle. */
+type GatewayConfigLike = { controlUi?: unknown; mode?: string; bind?: string }
+
+function usesLoopbackOnlyGatewayBind(gw: unknown): boolean {
+  if (!gw || typeof gw !== 'object' || Array.isArray(gw)) return true
+  const bind = (gw as GatewayConfigLike).bind
+  return bind === undefined || bind === 'loopback'
+}
+
+/** Seed `allowedOrigins: ['*']` only when the key is absent or [] — do not override a non-empty user allowlist. */
+function needsLoopbackAllowedOriginsWildcardSeed(ctrl: Record<string, unknown>, loopbackBind: boolean): boolean {
+  if (!loopbackBind) return false
+  const raw = ctrl.allowedOrigins
+  if (raw === undefined) return true
+  return Array.isArray(raw) && raw.length === 0
+}
 
 /**
  * OpenClaw 2026.3+ hardens Control UI auth (device identity + loopback policy). The desktop embeds
@@ -115,6 +129,10 @@ type GatewayConfigLike = { controlUi?: unknown; mode?: string }
  * Configs created outside the desktop wizard (CLI, hand-edited) may omit `gateway` entirely while
  * still using the bundled local gateway — those must get `gateway.controlUi` too or the child reads
  * disk without the embedded-safe flags and Control UI returns HTTP 500.
+ *
+ * **WebSocket origin:** upstream `checkBrowserOrigin` rejects missing / `null` Origin before the
+ * loopback shortcut. Electron iframe upgrades may omit Origin; we also seed `allowedOrigins: ["*"]`
+ * when `gateway.bind` is loopback (or unset) and `allowedOrigins` is unset or `[]` — scoped to local bind only.
  *
  * Used on read (migration) and on every {@link writeOpenClawConfig} so IPC/import paths cannot strip flags.
  */
@@ -132,7 +150,10 @@ function mergeEmbeddedControlUiFlagsIfNeeded(config: OpenClawConfig): {
     ctrl && typeof ctrl === 'object' && !Array.isArray(ctrl)
       ? (ctrl as Record<string, unknown>)
       : {}
-  if (base.allowInsecureAuth === true && base.dangerouslyDisableDeviceAuth === true) {
+  const loopbackBind = usesLoopbackOnlyGatewayBind(gw)
+  const needWildcardOrigins = needsLoopbackAllowedOriginsWildcardSeed(base, loopbackBind)
+  const flagsOk = base.allowInsecureAuth === true && base.dangerouslyDisableDeviceAuth === true
+  if (flagsOk && !needWildcardOrigins) {
     return { config, changed: false }
   }
   const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
@@ -145,13 +166,17 @@ function mergeEmbeddedControlUiFlagsIfNeeded(config: OpenClawConfig): {
     existingCtrl && typeof existingCtrl === 'object' && !Array.isArray(existingCtrl)
       ? (existingCtrl as Record<string, unknown>)
       : {}
+  const mergedCtrl: Record<string, unknown> = {
+    ...ctrlBase,
+    allowInsecureAuth: true,
+    dangerouslyDisableDeviceAuth: true,
+  }
+  if (needWildcardOrigins) {
+    mergedCtrl.allowedOrigins = ['*']
+  }
   next.gateway = {
     ...existing,
-    controlUi: {
-      ...ctrlBase,
-      allowInsecureAuth: true,
-      dangerouslyDisableDeviceAuth: true,
-    },
+    controlUi: mergedCtrl,
   } as OpenClawConfig['gateway']
   return { config: next, changed: true }
 }
@@ -549,7 +574,7 @@ export function readOpenClawConfig(): OpenClawConfig {
           }
           if (migratedControlUi.changed) {
             console.info(
-              '[config] Set gateway.controlUi.allowInsecureAuth=true and dangerouslyDisableDeviceAuth=true for embedded Control UI (OpenClaw 2026.3+)',
+              '[config] Normalized gateway.controlUi for embedded Control UI (OpenClaw 2026.3+): allowInsecureAuth, dangerouslyDisableDeviceAuth, and on loopback bind allowedOrigins=["*"] when allowedOrigins was unset or [] (Electron iframe / WebSocket Origin).',
             )
           }
           if (migratedAuthNone.changed) {

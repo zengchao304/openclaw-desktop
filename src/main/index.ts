@@ -43,6 +43,7 @@ import { listAuthProfiles } from './providers/index.js'
 import { syncLoginItemToSystem, getLoginItemOpenAtLogin, clearLoginItem } from './login-item/index.js'
 import { patchGatewayResponseHeaders } from './security/gateway-response-headers.js'
 import { rewriteGatewayRequestUrlWithToken } from './security/gateway-request-auth.js'
+import { ensureLoopbackGatewayOriginHeader } from './security/gateway-request-origin.js'
 import { listPendingFeishuPairing } from './pairing/index.js'
 import { watchFeishuPairingCredentialsDir } from './pairing/feishu-pairing-credentials-watcher.js'
 import { resolveTrayLocale, getFeishuPairingNotificationStrings, formatFeishuPairingBody } from './tray/tray-i18n.js'
@@ -198,6 +199,33 @@ app.whenReady().then(() => {
     }
 
     callback({})
+  })
+  let loggedGatewayOriginPatch = false
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const cfg = readOpenClawConfig()
+    if (cfg?.gateway?.mode === 'remote') {
+      callback({ requestHeaders: details.requestHeaders })
+      return
+    }
+    const cfgPort = cfg?.gateway?.port ?? DEFAULT_GATEWAY_PORT
+    const gwStatus = gatewayManager.getStatus()
+    const port =
+      gwStatus.status === 'running' || gwStatus.status === 'starting' ? gwStatus.port : cfgPort
+    const headers = details.requestHeaders ?? {}
+    const patched = ensureLoopbackGatewayOriginHeader(details.url, headers, port)
+    if (!patched) {
+      callback({ requestHeaders: details.requestHeaders })
+      return
+    }
+    if (!loggedGatewayOriginPatch) {
+      loggedGatewayOriginPatch = true
+      logInfo('[OpenClaw] Injected Origin for loopback gateway requests (Electron embed / WebSocket)')
+    }
+    const cleaned: Record<string, string | string[]> = {}
+    for (const [k, v] of Object.entries(patched)) {
+      if (v !== undefined) cleaned[k] = v
+    }
+    callback({ requestHeaders: cleaned })
   })
   logInfo(`[OpenClaw] App starting. packaged=${String(app.isPackaged)}`)
   logInfo(`[OpenClaw] paths: exe=${app.getPath('exe')} appPath=${app.getAppPath()} resources=${process.resourcesPath}`)

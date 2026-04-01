@@ -64,6 +64,11 @@ export interface GatewayControlUiConfig {
    * embedded iframe still hits 500 / device-identity failures despite `allowInsecureAuth`.
    */
   dangerouslyDisableDeviceAuth?: boolean
+  /**
+   * Browser/WebSocket origins allowed for Control UI (upstream `gateway.controlUi.allowedOrigins`).
+   * Desktop may seed `["*"]` on loopback bind when empty so Electron embeds pass origin checks.
+   */
+  allowedOrigins?: string[]
   /** Custom filesystem root for built Control UI (upstream `gateway.controlUi.root`) */
   root?: string
 }
