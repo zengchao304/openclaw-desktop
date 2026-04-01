@@ -18,6 +18,7 @@ import {
   rm,
   cp,
   writeFile,
+  readFile,
   readdir,
   access,
   unlink,
@@ -188,6 +189,36 @@ async function downloadTarballWithCurl(url: string, dest: string, timeoutMs: num
   }
 }
 
+/**
+ * Vite bundles `../src/**` under `openclawRoot/src`. Rolldown resolves bare imports (e.g. `zod`)
+ * from the source file path upward — `node_modules` must exist on `openclawRoot`, not only under `ui/`.
+ */
+async function ensureOpenclawRootDepsForBundledSrc(openclawRoot: string): Promise<void> {
+  const pkgPath = join(openclawRoot, 'package.json')
+  type RootPkg = { name?: string; private?: boolean; dependencies?: Record<string, string> }
+  let pkg: RootPkg
+  if (await fileExists(pkgPath)) {
+    const raw = await readFile(pkgPath, 'utf8')
+    pkg = JSON.parse(raw) as RootPkg
+    pkg.dependencies = { zod: '^4', ...pkg.dependencies }
+  } else {
+    pkg = {
+      name: 'openclaw-desktop-control-ui-openclawroot',
+      private: true,
+      dependencies: { zod: '^4' },
+    }
+  }
+  if (!pkg.dependencies?.zod) {
+    pkg.dependencies = { ...pkg.dependencies, zod: '^4' }
+  }
+  await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8')
+  execSync('npm install --no-audit --no-fund', {
+    cwd: openclawRoot,
+    stdio: 'inherit',
+    env: { ...process.env, NODE_ENV: '' },
+  })
+}
+
 async function findExtractedRepoRoot(extractParent: string): Promise<string> {
   const names = await readdir(extractParent, { withFileTypes: true })
   for (const ent of names) {
@@ -343,13 +374,8 @@ export async function downloadAndBuildOpenClawControlUiAt(
       env: { ...process.env, NODE_ENV: '' },
     })
 
-    // Vite bundles `../src/**`; upstream imports `zod` but `ui/package.json` may not list it — Rolldown fails CI otherwise.
-    console.log('  [control-ui] npm install zod (shared src peer for bundler)...')
-    execSync('npm install zod@^4 --no-audit --no-fund', {
-      cwd: uiDest,
-      stdio: 'inherit',
-      env: { ...process.env, NODE_ENV: '' },
-    })
+    console.log('  [control-ui] npm install zod at openclaw root (for ../src/** resolution)...')
+    await ensureOpenclawRootDepsForBundledSrc(openclawRoot)
 
     console.log('  [control-ui] vite build → dist/control-ui')
     execSync('npm run build', {
