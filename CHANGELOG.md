@@ -4,6 +4,12 @@ All notable changes to OpenClaw Desktop will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-04-02
+
+### Fixed
+
+- **主界面 / Control UI / 配置：** 上游 OpenClaw **2026.3.x** 在内嵌 iframe 下需 `gateway.controlUi.allowInsecureAuth` 与 `dangerouslyDisableDeviceAuth`。此前若 `openclaw.json` **缺少整段 `gateway`**（CLI/手改配置常见），迁移会跳过，子进程仍读磁盘旧文件并可能 **HTTP 500**。现对非 `remote` 网关始终合并上述字段；且 **`writeOpenClawConfig` 在每次写盘前再次合并**，避免设置/导入等路径覆盖后丢失标志；写盘增加短暂重试以减轻 Windows 下偶发锁文件导致迁移未落盘的问题（`openclaw-config.ts`）。
+
 ## [0.6.2] - 2026-04-01
 
 ### Changed

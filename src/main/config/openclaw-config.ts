@@ -103,24 +103,31 @@ function migrateLegacyProviderConfig(config: OpenClawConfig): { config: OpenClaw
   return { config: next, changed: true }
 }
 
-/** Ensure Feishu channel keeps explicit `dmPolicy: pairing` so DMs use pairing flow (not implicit open). */
+/** Narrow type for reading `controlUi` without importing a circular `GatewayConfig` reference. */
+type GatewayConfigLike = { controlUi?: unknown; mode?: string }
+
 /**
  * OpenClaw 2026.3+ hardens Control UI auth (device identity + loopback policy). The desktop embeds
  * Control UI in an Electron iframe; upstream may return 500 or reject WS unless both
  * `allowInsecureAuth` and `dangerouslyDisableDeviceAuth` are set for local gateways.
  * Always normalize to the embedded-safe pair for non-remote mode (overrides user `false`).
+ *
+ * Configs created outside the desktop wizard (CLI, hand-edited) may omit `gateway` entirely while
+ * still using the bundled local gateway — those must get `gateway.controlUi` too or the child reads
+ * disk without the embedded-safe flags and Control UI returns HTTP 500.
+ *
+ * Used on read (migration) and on every {@link writeOpenClawConfig} so IPC/import paths cannot strip flags.
  */
-function migrateDesktopControlUiAllowInsecureAuth(
-  config: OpenClawConfig,
-): { config: OpenClawConfig; changed: boolean } {
+function mergeEmbeddedControlUiFlagsIfNeeded(config: OpenClawConfig): {
+  config: OpenClawConfig
+  changed: boolean
+} {
   const gw = config.gateway
-  if (!gw || typeof gw !== 'object') {
+  if (gw && typeof gw === 'object' && !Array.isArray(gw) && gw.mode === 'remote') {
     return { config, changed: false }
   }
-  if (gw.mode === 'remote') {
-    return { config, changed: false }
-  }
-  const ctrl = gw.controlUi
+  const ctrl =
+    gw && typeof gw === 'object' && !Array.isArray(gw) ? (gw as GatewayConfigLike).controlUi : undefined
   const base =
     ctrl && typeof ctrl === 'object' && !Array.isArray(ctrl)
       ? (ctrl as Record<string, unknown>)
@@ -129,18 +136,30 @@ function migrateDesktopControlUiAllowInsecureAuth(
     return { config, changed: false }
   }
   const next = JSON.parse(JSON.stringify(config)) as OpenClawConfig
-  const ng = next.gateway
-  if (!ng || typeof ng !== 'object') {
-    return { config, changed: false }
-  }
-  ng.controlUi = {
-    ...(typeof ng.controlUi === 'object' && ng.controlUi !== null && !Array.isArray(ng.controlUi)
-      ? ng.controlUi
-      : {}),
-    allowInsecureAuth: true,
-    dangerouslyDisableDeviceAuth: true,
-  }
+  const existing =
+    next.gateway && typeof next.gateway === 'object' && !Array.isArray(next.gateway)
+      ? (next.gateway as Record<string, unknown>)
+      : {}
+  const existingCtrl = existing.controlUi
+  const ctrlBase =
+    existingCtrl && typeof existingCtrl === 'object' && !Array.isArray(existingCtrl)
+      ? (existingCtrl as Record<string, unknown>)
+      : {}
+  next.gateway = {
+    ...existing,
+    controlUi: {
+      ...ctrlBase,
+      allowInsecureAuth: true,
+      dangerouslyDisableDeviceAuth: true,
+    },
+  } as OpenClawConfig['gateway']
   return { config: next, changed: true }
+}
+
+function migrateDesktopControlUiAllowInsecureAuth(
+  config: OpenClawConfig,
+): { config: OpenClawConfig; changed: boolean } {
+  return mergeEmbeddedControlUiFlagsIfNeeded(config)
 }
 
 /**
@@ -575,20 +594,41 @@ export function readOpenClawConfig(): OpenClawConfig {
 
 /**
  * Write OpenClaw main config as standard JSON (tool-friendly).
+ * Always merges embedded-shell Control UI flags for non-remote gateways so no code path can persist
+ * a file that would make the bundled gateway return HTTP 500 in the main window iframe.
  */
 export function writeOpenClawConfig(config: OpenClawConfig): void {
+  const { config: toWrite } = mergeEmbeddedControlUiFlagsIfNeeded(config)
   const configPath = getOpenClawConfigPath()
   const dir = path.dirname(configPath)
   fs.mkdirSync(dir, { recursive: true })
-  const data = JSON.stringify(config, null, 2) + '\n'
+  const data = JSON.stringify(toWrite, null, 2) + '\n'
   const tmpPath = `${configPath}.tmp`
-  fs.writeFileSync(tmpPath, data, 'utf-8')
-  try {
-    fs.renameSync(tmpPath, configPath)
-  } catch {
-    // Windows: rename fails if target exists; remove it and retry
-    fs.unlinkSync(configPath)
-    fs.renameSync(tmpPath, configPath)
+  const maxAttempts = 3
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      fs.writeFileSync(tmpPath, data, 'utf-8')
+      try {
+        fs.renameSync(tmpPath, configPath)
+      } catch {
+        fs.unlinkSync(configPath)
+        fs.renameSync(tmpPath, configPath)
+      }
+      return
+    } catch (err) {
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
+      } catch {
+        /* ignore */
+      }
+      if (attempt === maxAttempts - 1) {
+        throw err
+      }
+      const deadline = Date.now() + 60
+      while (Date.now() < deadline) {
+        /* sync backoff for Windows AV / indexer locks */
+      }
+    }
   }
 }
 
