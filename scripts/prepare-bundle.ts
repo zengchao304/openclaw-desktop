@@ -145,7 +145,27 @@ async function openclawDestHasStubPackageJson(destOpenclaw: string): Promise<boo
   }
 }
 
-async function validateOpenclawDist(rootDir: string): Promise<string[]> {
+/**
+ * Upstream ships some `dist/extensions/*` plugins whose runtime deps are not in the published npm
+ * tarball (e.g. `@aws-sdk/client-bedrock`). The gateway logs a warn on each start if the folder exists.
+ * Desktop installer does not bundle those heavy SDKs — remove known offenders after copy.
+ */
+const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock'] as const
+
+async function stripOpenClawExtensionsWithoutDesktopDeps(openclawRoot: string): Promise<void> {
+  const extRoot = join(openclawRoot, 'dist', 'extensions')
+  if (!(await fileExists(extRoot))) return
+  for (const name of OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP) {
+    const dir = join(extRoot, name)
+    if (!(await fileExists(dir))) continue
+    await rm(dir, { recursive: true, force: true })
+    console.log(
+      `  [strip] dist/extensions/${name}: removed (optional npm deps not in desktop bundle; avoids gateway load warnings)`,
+    )
+  }
+}
+
+async function validateOpenClawDist(rootDir: string): Promise<string[]> {
   const entryPath = join(rootDir, 'dist', 'entry.js')
   const entryAlt = join(rootDir, 'dist', 'entry.mjs')
   const entryExists = (await fileExists(entryPath)) || (await fileExists(entryAlt))
@@ -243,8 +263,10 @@ async function main(): Promise<void> {
   // Re-apply on resources: copyDir may skip when version matches, leaving stale dist without the Feishu guard.
   await patchOpenClawFeishuRegisterOnce(DEST_OPENCLAW)
 
+  await stripOpenClawExtensionsWithoutDesktopDeps(DEST_OPENCLAW)
+
   // --- Validate OpenClaw dist integrity ---
-  const missingDist = await validateOpenclawDist(DEST_OPENCLAW)
+  const missingDist = await validateOpenClawDist(DEST_OPENCLAW)
   if (missingDist.length > 0) {
     throw new Error(`OpenClaw dist missing in resources: ${missingDist.join(', ')}`)
   }
