@@ -8,6 +8,7 @@ import { access, mkdir, readFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { verifyControlUiBundle } from './lib/control-ui-verify.ts'
+import { getOpenClawFeishuSdkPackageJsonPath } from './ensure-openclaw-feishu-sdk.ts'
 
 const PROJECT_ROOT = process.cwd()
 const BUILD_DIR = join(PROJECT_ROOT, 'build')
@@ -62,6 +63,14 @@ async function main(): Promise<void> {
   if (!(await fileExists(join(OPENCLAW_DIR, 'node_modules')))) {
     throw new Error('build/openclaw/node_modules not found. Run "pnpm run download-openclaw" first.')
   }
+
+  const feishuSdkPkg = getOpenClawFeishuSdkPackageJsonPath(OPENCLAW_DIR)
+  if (!(await fileExists(feishuSdkPkg))) {
+    throw new Error(
+      `build/openclaw missing Feishu/Lark SDK (${feishuSdkPkg}). Run "pnpm run download-openclaw" or "pnpm run prepare-bundle" so @larksuiteoapi/node-sdk is installed into the bundle.`,
+    )
+  }
+  console.log('  [ok] @larksuiteoapi/node-sdk (Feishu/Lark)')
 
   const missing = await validateOpenclawDist(OPENCLAW_DIR)
   if (missing.length > 0) {

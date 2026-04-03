@@ -47,7 +47,7 @@ function testHeaderPatchForLoopbackResponse(): void {
   assert.equal((patched as Record<string, unknown>)['X-Frame-Options'], undefined)
   assert.equal(
     patched?.['Content-Security-Policy']?.[0],
-    "default-src 'self'; frame-ancestors 'self' file: openclaw-shell://renderer http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*",
+    "default-src 'self'; frame-ancestors 'self' file: openclaw-shell://renderer http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; worker-src 'self' blob:",
   )
   assert.deepEqual(patched?.Server, ['openclaw'])
 }

@@ -12,7 +12,7 @@ import { readOpenClawConfig } from '../config/index.js'
 
 export interface GatewayLaunchOptions {
   port?: number
-  bind?: 'loopback' | 'lan' | 'auto'
+  bind?: 'loopback' | 'lan' | 'auto' | 'tailnet' | 'custom'
   /** Auth token; passed as --token / --auth token (aligned with gateway run) */
   token?: string
   /** Pass --force on port conflict when gateway.forcePortOnConflict is set */
@@ -462,7 +462,8 @@ export class GatewayProcessManager {
   }
 
   /**
-   * Wait until GET /health returns 200 before marking running — matches upstream: ready only when reachable.
+   * Wait until the loopback port accepts TCP and GET / returns a non-5xx HTTP status (with auth token when configured).
+   * Avoids marking `running` while the Control UI still serves 5xx during upstream plugin probing.
    */
   private async waitForGatewayReady(): Promise<void> {
     this.waitForReadyAbort?.abort()
@@ -474,8 +475,21 @@ export class GatewayProcessManager {
     // Note: `child.killed` is not always reliable (see smoke tests). We use it only
     // to stop health polling elsewhere; here we keep waiting based on actual health.
     while (!signal.aborted && this.child && this.statusValue === 'starting') {
-      const result = await this.checkGatewayHealth(this.currentPort)
-      if (result.ok) {
+      const tcp = await this.checkGatewayTcpPortOpen(this.currentPort)
+      if (!tcp.ok) {
+        if (Date.now() >= deadline) {
+          this.emitLog('stderr', `[gateway] wait for ready timed out after ${Math.round(readyTimeoutMs / 1000)}s`)
+          if (this.statusValue === 'starting') {
+            this.statusValue = 'error'
+            this.notifyStatusChange()
+          }
+          return
+        }
+        await new Promise((r) => setTimeout(r, pollIntervalMs))
+        continue
+      }
+      const httpOk = await this.checkGatewayControlUiHttpOk(this.currentPort, this.lastLaunchOptions.token)
+      if (httpOk.ok) {
         this.consecutiveHealthCheckFailures = 0
         this.statusValue = 'running'
         this.notifyStatusChange()
@@ -587,6 +601,58 @@ export class GatewayProcessManager {
     })
   }
 
+  /**
+   * Used only while waiting for the first ready state after spawn. The TCP port can accept
+   * connections before the Control UI route is safe to serve (plugin probe / auth stack); marking
+   * `running` too early leaves the shell iframe on an HTTP 500 page.
+   */
+  private checkGatewayControlUiHttpOk(port: number, token?: string): Promise<GatewayHealthCheckResult> {
+    const timeoutMs = 12_000
+    const path = token?.trim()
+      ? `/?token=${encodeURIComponent(token.trim())}`
+      : '/'
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (result: GatewayHealthCheckResult) => {
+        if (settled) return
+        settled = true
+        resolve(result)
+      }
+
+      let req: http.ClientRequest | null = null
+      const timer = setTimeout(() => {
+        req?.destroy()
+        finish({ ok: false, details: 'This operation was aborted' })
+      }, timeoutMs)
+
+      req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path,
+          method: 'GET',
+          family: 4,
+        },
+        (res) => {
+          res.resume()
+          clearTimeout(timer)
+          const code = res.statusCode ?? 0
+          const ok = code > 0 && code < 500
+          finish({
+            ok,
+            statusCode: code,
+            details: ok ? undefined : `Control UI HTTP ${code}`,
+          })
+        },
+      )
+      req.on('error', (err) => {
+        clearTimeout(timer)
+        finish({ ok: false, details: err.message })
+      })
+      req.end()
+    })
+  }
+
   private async checkGatewayHealthEndpoint(port: number, endpoint: string): Promise<GatewayHealthCheckResult> {
     const timeoutMs = 12_000
     // Use node:http (not global fetch/undici): corporate HTTP_PROXY often omits loopback from NO_PROXY,
@@ -689,8 +755,8 @@ export class GatewayProcessManager {
     if (Number.isFinite(port) && port > 0) {
       this.currentPort = port
     }
-    this.statusValue = 'running'
-    this.notifyStatusChange()
+    // Do not set `running` here: TCP/WS "listening" can precede a Control UI HTTP 500 during plugin
+    // init; {@link waitForGatewayReady} promotes to running after GET / returns status < 500.
   }
 
   private emitLog(stream: 'stdout' | 'stderr', message: string): void {

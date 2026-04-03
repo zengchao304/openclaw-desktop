@@ -10,6 +10,11 @@ type ManagerInternals = GatewayProcessManager & {
   currentPort: number
   consecutiveHealthCheckFailures: number
   checkGatewayHealth: (port: number) => Promise<{ ok: boolean; statusCode?: number; details?: string }>
+  checkGatewayTcpPortOpen: (port: number) => Promise<{ ok: boolean; statusCode?: number; details?: string }>
+  checkGatewayControlUiHttpOk: (
+    port: number,
+    token?: string,
+  ) => Promise<{ ok: boolean; statusCode?: number; details?: string }>
   runHealthCheck: () => Promise<void>
   waitForGatewayReady: () => Promise<void>
   terminateChildProcess: (child: ChildProcessWithoutNullStreams, timeoutMs: number) => Promise<void>
@@ -183,15 +188,21 @@ async function testWaitForReadyUsesRealProcessState(): Promise<void> {
   manager.statusValue = 'starting'
   manager.currentPort = 17777
 
-  let healthCalls = 0
-  manager.checkGatewayHealth = async () => {
-    healthCalls += 1
+  let tcpCalls = 0
+  let httpCalls = 0
+  manager.checkGatewayTcpPortOpen = async () => {
+    tcpCalls += 1
+    return { ok: true }
+  }
+  manager.checkGatewayControlUiHttpOk = async () => {
+    httpCalls += 1
     return { ok: true, statusCode: 200 }
   }
 
   await manager.waitForGatewayReady()
 
-  assert.equal(healthCalls, 1, 'expected waitForGatewayReady to poll at least once')
+  assert.equal(tcpCalls, 1, 'expected waitForGatewayReady to probe TCP once')
+  assert.equal(httpCalls, 1, 'expected waitForGatewayReady to probe Control UI HTTP once')
   assert.equal(manager.statusValue, 'running', 'expected status to switch to running when health is ok')
 }
 

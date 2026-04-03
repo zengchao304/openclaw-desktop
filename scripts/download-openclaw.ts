@@ -15,26 +15,39 @@ import {
   readdir,
 } from 'node:fs/promises'
 import { join } from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { execSync } from 'node:child_process'
 import {
   ensureOpenClawControlUiBuilt,
   CONTROL_UI_ELECTRON_LIT_MARKER,
 } from './ensure-openclaw-control-ui.ts'
 import { patchOpenClawFeishuRegisterOnce } from './patch-openclaw-feishu-register-once.ts'
+import { patchOpenClawStripSlackChannel } from './patch-openclaw-strip-slack-channel.ts'
+import { ensureOpenClawFeishuLarkSdk } from './ensure-openclaw-feishu-sdk.ts'
 
 /** Fallback when package.json has no `openclawBundleVersion` (discouraged — pin in package.json). */
 const DEFAULT_VERSION = 'latest'
 const BUILD_DIR = join(process.cwd(), 'build')
 const OPENCLAW_DIR = join(BUILD_DIR, 'openclaw')
 const NODE_EXE = join(BUILD_DIR, 'node', 'node.exe')
-const TMP_DIR = join(BUILD_DIR, '_openclaw_tmp')
 const VERSION_MARKER = '.openclaw-version'
+
+/** Unique per run so a locked legacy `build/_openclaw_tmp` (Windows EBUSY) cannot block installs. */
+function newOpenclawNpmTmpDir(): string {
+  return join(BUILD_DIR, `_openclaw_tmp_${Date.now()}_${randomBytes(4).toString('hex')}`)
+}
 
 function skipControlUiBuild(): boolean {
   return process.env.OPENCLAW_SKIP_CONTROL_UI_BUILD === '1'
 }
 
 const CONTROL_UI_DIST = join(OPENCLAW_DIR, 'dist', 'control-ui')
+
+async function finalizeDesktopOpenClawBundle(openclawDir: string): Promise<void> {
+  await ensureOpenClawFeishuLarkSdk(openclawDir)
+  await patchOpenClawFeishuRegisterOnce(openclawDir)
+  await patchOpenClawStripSlackChannel(openclawDir)
+}
 
 /**
  * CI merges Linux-built `dist/control-ui` via download-artifact. That extract overwrites same paths but
@@ -178,6 +191,7 @@ async function main(): Promise<void> {
               '  [info] dist/control-ui lacks Electron Lit compat marker — clearing for CI artifact merge',
             )
             await stripControlUiForCiArtifactMerge()
+            await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
             return
           }
           console.log(
@@ -185,6 +199,7 @@ async function main(): Promise<void> {
           )
           await rm(CONTROL_UI_DIST, { recursive: true, force: true })
           await ensureOpenClawControlUiBuilt(OPENCLAW_DIR, version)
+          await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
           return
         }
         if (!commanderMismatch && hasControlUi) {
@@ -193,11 +208,13 @@ async function main(): Promise<void> {
             console.log(
               `  [skip] OpenClaw ${version} core present — dist/control-ui cleared for Linux artifact merge`,
             )
+            await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
             return
           }
           console.log(
             `  [skip] OpenClaw ${version} already present at ${OPENCLAW_DIR}`,
           )
+          await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
           return
         }
         if (!commanderMismatch && !hasControlUi) {
@@ -205,12 +222,14 @@ async function main(): Promise<void> {
             console.log(
               '  [skip] dist/control-ui missing — OPENCLAW_SKIP_CONTROL_UI_BUILD=1 (merge artifact before prepare-bundle)',
             )
+            await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
             return
           }
           console.log(
             '  [info] dist/control-ui missing — building from GitHub sources for this version...',
           )
           await ensureOpenClawControlUiBuilt(OPENCLAW_DIR, version)
+          await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
           return
         }
         console.log(
@@ -223,11 +242,10 @@ async function main(): Promise<void> {
     await rm(OPENCLAW_DIR, { recursive: true, force: true })
   }
 
-  // Prepare temp directory
-  await rm(TMP_DIR, { recursive: true, force: true })
-  await mkdir(TMP_DIR, { recursive: true })
+  const npmTmpDir = newOpenclawNpmTmpDir()
+  await mkdir(npmTmpDir, { recursive: true })
   await writeFile(
-    join(TMP_DIR, 'package.json'),
+    join(npmTmpDir, 'package.json'),
     JSON.stringify({ private: true, name: 'openclaw-bundle' }),
     'utf8',
   )
@@ -235,7 +253,7 @@ async function main(): Promise<void> {
   // npm install
   console.log(`  [install] npm install openclaw@${version} (this may take a while)...`)
   execSync(`npm install --save openclaw@${version} --no-audit --no-fund`, {
-    cwd: TMP_DIR,
+    cwd: npmTmpDir,
     stdio: 'inherit',
     env: { ...process.env, NODE_ENV: '' },
   })
@@ -243,11 +261,11 @@ async function main(): Promise<void> {
   // Ensure commander version satisfies OpenClaw expectations
   try {
     const openclawPkg = await readJson<{ dependencies?: Record<string, string> }>(
-      join(TMP_DIR, 'node_modules', 'openclaw', 'package.json'),
+      join(npmTmpDir, 'node_modules', 'openclaw', 'package.json'),
     )
     const commanderRange = openclawPkg.dependencies?.commander
     const expectedMajor = parseMajor(commanderRange)
-    const commanderPkgPath = join(TMP_DIR, 'node_modules', 'commander', 'package.json')
+    const commanderPkgPath = join(npmTmpDir, 'node_modules', 'commander', 'package.json')
     const commanderPkg = await readJson<{ version?: string }>(commanderPkgPath)
     const installedMajor = parseMajor(commanderPkg.version)
     if (expectedMajor && installedMajor !== null && installedMajor < expectedMajor) {
@@ -255,7 +273,7 @@ async function main(): Promise<void> {
         `  [fix] commander ${commanderPkg.version} < ${commanderRange} — reinstalling`,
       )
       execSync(`npm install --save commander@${commanderRange} --no-audit --no-fund`, {
-        cwd: TMP_DIR,
+        cwd: npmTmpDir,
         stdio: 'inherit',
         env: { ...process.env, NODE_ENV: '' },
       })
@@ -266,7 +284,7 @@ async function main(): Promise<void> {
   }
 
   // Verify npm produced the expected files
-  const pkgDir = join(TMP_DIR, 'node_modules', 'openclaw')
+  const pkgDir = join(npmTmpDir, 'node_modules', 'openclaw')
   if (!(await fileExists(join(pkgDir, 'openclaw.mjs')))) {
     throw new Error('openclaw.mjs not found in installed package')
   }
@@ -290,7 +308,7 @@ async function main(): Promise<void> {
 
   // Copy dependency tree to build/openclaw/node_modules/
   console.log('  [extract] copying dependencies (may be large)...')
-  const nmSrc = join(TMP_DIR, 'node_modules')
+  const nmSrc = join(npmTmpDir, 'node_modules')
   const nmDest = join(OPENCLAW_DIR, 'node_modules')
   await mkdir(nmDest, { recursive: true })
 
@@ -302,12 +320,20 @@ async function main(): Promise<void> {
     })
   }
 
+  await ensureOpenClawFeishuLarkSdk(OPENCLAW_DIR)
+
   // Version marker for idempotent re-runs
   await writeFile(markerPath, actualVersion + '\n', 'utf8')
 
-  // Cleanup temp directory
   console.log('  [cleanup] removing temp directory...')
-  await rm(TMP_DIR, { recursive: true, force: true })
+  try {
+    await rm(npmTmpDir, { recursive: true, force: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(
+      `  [warn] could not remove temp dir ${npmTmpDir}: ${msg.split('\n')[0]} (safe to delete manually)`,
+    )
+  }
 
   // Final verification with bundled node.exe
   console.log('  [verify] testing with bundled node.exe...')
@@ -356,7 +382,7 @@ async function main(): Promise<void> {
     await ensureOpenClawControlUiBuilt(OPENCLAW_DIR, actualVersion)
   }
 
-  await patchOpenClawFeishuRegisterOnce(OPENCLAW_DIR)
+  await finalizeDesktopOpenClawBundle(OPENCLAW_DIR)
 
   console.log(`\n  OK: OpenClaw ${actualVersion} ready at ${OPENCLAW_DIR}\n`)
 }

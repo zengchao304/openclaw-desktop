@@ -48,6 +48,8 @@ export interface ShellConfig {
 export interface GatewayAuthConfig {
   mode?: 'token' | 'password'
   token?: string
+  /** Used when `mode` is `password` (or implied); same field as upstream `gateway.auth.password`. */
+  password?: string
 }
 
 /** Gateway Control UI policy (upstream `gateway.controlUi.*`) */
@@ -78,7 +80,8 @@ export interface GatewayConfig {
   /** Matches upstream doctor: local (desktop shell) or remote */
   mode?: 'local' | 'remote'
   port?: number
-  bind?: 'loopback' | 'lan' | 'auto'
+  /** Upstream `gateway run --bind`: loopback | lan | tailnet | auto | custom */
+  bind?: 'loopback' | 'lan' | 'auto' | 'tailnet' | 'custom'
   auth?: GatewayAuthConfig
   controlUi?: GatewayControlUiConfig
   /** When true, pass --force on port conflict (aligned with gateway run) */

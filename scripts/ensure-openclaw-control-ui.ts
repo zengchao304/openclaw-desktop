@@ -25,6 +25,7 @@ import {
   stat,
 } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { execFile, execFileSync, execSync } from 'node:child_process'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
@@ -345,8 +346,11 @@ export async function downloadAndBuildOpenClawControlUiAt(
   const url = resolveTarballUrl(tag)
   console.log(`  [control-ui] fetching ${tag} sources (${url.split('/').slice(0, 3).join('/')}/...)...`)
 
-  const parentTmp = join(openclawRoot, '..', '_openclaw_control_ui_tmp')
-  await rm(parentTmp, { recursive: true, force: true })
+  const parentTmp = join(
+    openclawRoot,
+    '..',
+    `_openclaw_control_ui_tmp_${Date.now()}_${randomBytes(4).toString('hex')}`,
+  )
   await mkdir(parentTmp, { recursive: true })
 
   const tgzPath = join(parentTmp, 'openclaw-src.tgz')
@@ -409,7 +413,14 @@ export async function downloadAndBuildOpenClawControlUiAt(
       throw new Error(`Control UI build finished but missing: ${indexHtml}`)
     }
   } finally {
-    await rm(parentTmp, { recursive: true, force: true })
+    try {
+      await rm(parentTmp, { recursive: true, force: true })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(
+        `  [warn] control-ui temp cleanup failed (${parentTmp}): ${msg.split('\n')[0]} (safe to delete manually)`,
+      )
+    }
   }
 }
 

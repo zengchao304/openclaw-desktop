@@ -37,6 +37,8 @@ export type GatewayRpcErrorCode =
 export interface GatewayRpcClientOptions {
   port: number
   token?: string
+  /** Gateway password auth (`gateway.auth.mode === 'password'`); mutually exclusive with token in connect frame. */
+  password?: string
   timeoutMs?: number
   maxRetries?: number
 }
@@ -80,6 +82,7 @@ export class GatewayRpcClient {
   private ws: WebSocket | null = null
   private readonly port: number
   private readonly token?: string
+  private readonly password?: string
   private readonly defaultTimeoutMs: number
   private readonly maxRetries: number
   private connectPromise: Promise<void> | null = null
@@ -90,6 +93,7 @@ export class GatewayRpcClient {
   constructor(options: GatewayRpcClientOptions) {
     this.port = options.port
     this.token = options.token?.trim() || undefined
+    this.password = options.password?.trim() || undefined
     this.defaultTimeoutMs = options.timeoutMs ?? 15_000
     this.maxRetries = Math.max(0, options.maxRetries ?? 3)
   }
@@ -215,7 +219,11 @@ export class GatewayRpcClient {
   }
 
   private sendConnect(ws: WebSocket): void {
-    const auth = this.token ? { token: this.token } : undefined
+    const auth = this.token
+      ? { token: this.token }
+      : this.password
+        ? { password: this.password }
+        : undefined
     const connectParams = {
       minProtocol: PROTOCOL_VERSION,
       maxProtocol: PROTOCOL_VERSION,
@@ -343,7 +351,7 @@ function mapErrorCode(code?: string): GatewayRpcErrorCode {
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 /**
- * Build client from shell + OpenClaw config (port from lastGatewayPort, token from gateway.auth).
+ * Build client from shell + OpenClaw config (port from lastGatewayPort; token or password from gateway.auth).
  */
 export async function createGatewayRpcClientFromConfig(
   overrides?: Partial<GatewayRpcClientOptions>
@@ -351,10 +359,24 @@ export async function createGatewayRpcClientFromConfig(
   const shellConfig = readShellConfig()
   const openclawConfig = readOpenClawConfig()
   const port = overrides?.port ?? shellConfig.lastGatewayPort ?? DEFAULT_GATEWAY_PORT
-  const token = overrides?.token ?? (openclawConfig.gateway?.auth?.token?.trim() || undefined)
+  const gwAuth = openclawConfig.gateway?.auth
+  let token = overrides?.token
+  let password = overrides?.password
+  if (token === undefined && password === undefined && gwAuth) {
+    const t = gwAuth.token?.trim()
+    const p = typeof gwAuth.password === 'string' ? gwAuth.password.trim() : ''
+    if (gwAuth.mode === 'password') {
+      if (p) password = p
+    } else if (t) {
+      token = t
+    } else if (p) {
+      password = p
+    }
+  }
   return new GatewayRpcClient({
     port,
     token,
+    password,
     timeoutMs: 15_000,
     maxRetries: 3,
     ...overrides,

@@ -8,6 +8,11 @@ import { cp, rm, readFile, writeFile, access, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { patchOpenClawFeishuRegisterOnce } from './patch-openclaw-feishu-register-once.ts'
+import { patchOpenClawStripSlackChannel } from './patch-openclaw-strip-slack-channel.ts'
+import {
+  ensureOpenClawFeishuLarkSdk,
+  getOpenClawFeishuSdkPackageJsonPath,
+} from './ensure-openclaw-feishu-sdk.ts'
 
 const PROJECT_ROOT = process.cwd()
 const BUILD_DIR = join(PROJECT_ROOT, 'build')
@@ -147,10 +152,11 @@ async function openclawDestHasStubPackageJson(destOpenclaw: string): Promise<boo
 
 /**
  * Upstream ships some `dist/extensions/*` plugins whose runtime deps are not in the published npm
- * tarball (e.g. `@aws-sdk/client-bedrock`). The gateway logs a warn on each start if the folder exists.
- * Desktop installer does not bundle those heavy SDKs — remove known offenders after copy.
+ * tarball (e.g. `@aws-sdk/client-bedrock`). Desktop does not bundle those heavy SDKs — remove known
+ * offenders after copy. Feishu/Lark is kept: `@larksuiteoapi/node-sdk` is installed via
+ * {@link ensureOpenClawFeishuLarkSdk}.
  */
-const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock'] as const
+const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock', 'slack'] as const
 
 async function stripOpenClawExtensionsWithoutDesktopDeps(openclawRoot: string): Promise<void> {
   const extRoot = join(openclawRoot, 'dist', 'extensions')
@@ -214,6 +220,7 @@ async function main(): Promise<void> {
   }
   console.log('  [ok] build/openclaw/node_modules found')
 
+  await ensureOpenClawFeishuLarkSdk(SRC_OPENCLAW)
   await patchOpenClawFeishuRegisterOnce(SRC_OPENCLAW)
 
   // --- Ensure resources directory exists ---
@@ -263,7 +270,13 @@ async function main(): Promise<void> {
   // Re-apply on resources: copyDir may skip when version matches, leaving stale dist without the Feishu guard.
   await patchOpenClawFeishuRegisterOnce(DEST_OPENCLAW)
 
+  await ensureOpenClawFeishuLarkSdk(DEST_OPENCLAW)
+
   await stripOpenClawExtensionsWithoutDesktopDeps(DEST_OPENCLAW)
+
+  // Remove hardcoded "slack" from CHAT_CHANNEL_ORDER in chat-meta-*.js,
+  // so the gateway doesn't crash when the Slack extension was stripped.
+  await patchOpenClawStripSlackChannel(DEST_OPENCLAW)
 
   // --- Validate OpenClaw dist integrity ---
   const missingDist = await validateOpenClawDist(DEST_OPENCLAW)
@@ -279,6 +292,7 @@ async function main(): Promise<void> {
     join(DEST_OPENCLAW, 'dist'),
     join(DEST_OPENCLAW, 'dist', 'control-ui', 'index.html'),
     join(DEST_OPENCLAW, 'node_modules'),
+    getOpenClawFeishuSdkPackageJsonPath(DEST_OPENCLAW),
   ]
   for (const p of required) {
     if (!(await fileExists(p))) {

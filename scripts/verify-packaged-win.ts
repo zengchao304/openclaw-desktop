@@ -10,6 +10,7 @@ import { access, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { verifyControlUiBundle } from './lib/control-ui-verify.ts'
+import { getOpenClawFeishuSdkPackageJsonPath } from './ensure-openclaw-feishu-sdk.ts'
 
 const require = createRequire(import.meta.url)
 const { extractFile } = require('@electron/asar') as {
@@ -102,6 +103,14 @@ async function main(): Promise<void> {
     )
   }
   console.log(`  [ok] bundled OpenClaw package version === manifest (${bundled})`)
+
+  const feishuSdkPkg = getOpenClawFeishuSdkPackageJsonPath(
+    join(unpacked, 'resources', 'openclaw'),
+  )
+  if (!(await exists(feishuSdkPkg))) {
+    throw new Error(`Packaged app missing Feishu/Lark SDK: ${feishuSdkPkg}`)
+  }
+  console.log('  [ok] @larksuiteoapi/node-sdk in resources/openclaw')
 
   const markerPath = join(unpacked, 'resources', 'openclaw', '.openclaw-version')
   if (await exists(markerPath)) {

@@ -4,6 +4,30 @@ All notable changes to OpenClaw Desktop will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-03
+
+### Changed
+
+- **网关就绪判定：** 首次启动后仅在 **TCP 端口可连** 且 **GET `/`（含 token 查询串）返回非 5xx** 后才将状态标为 `running`，避免 Control UI 仍在插件探测 / 认证栈初始化时出现 HTTP 500 时 iframe 已显示错误页（`process-manager.ts`）。
+- **网关绑定类型：** `GatewayLaunchOptions.bind` 与上游对齐，补充 **`tailnet`** / **`custom`**（`process-manager.ts`、`shared/types.ts`）。
+- **随包 OpenClaw 收尾：** `download-openclaw` 在多种路径下统一执行 **飞书 Lark SDK 注入**、**Feishu registerFull 补丁**、**Slack 通道剥离补丁**；npm 临时目录改为每次唯一路径，减轻 Windows 下 `_openclaw_tmp` 锁定导致安装失败（`download-openclaw.ts`、新脚本 `ensure-openclaw-feishu-sdk.ts`、`patch-openclaw-strip-slack-channel.ts`）。
+- **打包与校验：** `prepare-bundle` / `verify-bundle` / `verify-packaged-win` 等与上述资源布局一致；smoke 与网关响应头相关脚本同步。
+- **Release：** Shell **`0.7.0+openclaw.2026.4.2`**；Git 发行标签 **`v0.7.0+openclaw.2026.4.2`**。捆绑 OpenClaw 仍为 npm **`2026.4.2`**（与 `openclaw@latest` 一致）。
+- **文档：** `README.md` / `README.zh-CN.md` / `CONTRIBUTING.md` / `release.yml` 示例与 **0.7.0** 及 **2026.4.2** 钉扎对齐。
+
+## [0.6.6] - 2026-04-03
+
+### Changed
+
+- **Bundled OpenClaw：** 升至 npm **2026.4.2**（与当前 `openclaw@latest` 一致）。完整上游说明：[openclaw/openclaw v2026.4.2](https://github.com/openclaw/openclaw/releases/tag/v2026.4.2)。
+- **Release：** Shell **`0.6.6+openclaw.2026.4.2`**；Git 发行标签为 **`v` + `package.json` 的 `version`**，例如 **`v0.6.6+openclaw.2026.4.2`**。
+- **文档：** `README.md` / `README.zh-CN.md` / `CONTRIBUTING.md` / `release.yml` 示例标签与 **2026.4.2** 钉扎及上游摘要对齐。
+
+### Notes（与桌面壳 / 用户配置）
+
+- **破坏性（需迁移）：** X（xAI）插件将 **`x_search`** 配置从旧路径 `tools.web.x_search.*` 迁至 **`plugins.entries.xai.config.xSearch.*`**，认证统一到 **`plugins.entries.xai.config.webSearch.apiKey` / `XAI_API_KEY`**；Firecrawl 将 **`web_fetch`** 从 `tools.web.fetch.firecrawl.*` 迁至 **`plugins.entries.firecrawl.config.webFetch.*`**。上游提供 **`openclaw doctor --fix`** 做旧配置迁移（参见上游 Release #59674、#59465）。
+- **与本项目相关：** 上游修复 **网关 loopback 配对** 后本地 exec / 子代理在 **2026.3.31** 后出现的配对类错误（如 #59092、#59555）；桌面仍通过 **`node` + `openclaw.mjs gateway run`**（`--allow-unconfigured`、`--bind`、`--port`、可选 `--token`）启动，**`OPENCLAW_STATE_DIR` / `OPENCLAW_CONFIG_PATH` / `OPENCLAW_AGENT_DIR`** 与内嵌 Control UI（GitHub 标签源码 + Vite + Electron 兼容构建）流程不变；若你自定义了 **x_search** 或 **Firecrawl web_fetch**，升级后请运行 **`openclaw doctor`** 并按提示修复。
+
 ## [0.6.4] - 2026-04-03
 
 ### Fixed

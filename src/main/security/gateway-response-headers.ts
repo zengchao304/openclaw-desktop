@@ -86,8 +86,21 @@ export function mitigateStrictGatewayDefaultSrc(csp: string): string {
   return `${trimmed}${sep}${extras.join('; ')}`
 }
 
+/**
+ * Upstream Control UI CSP may omit `worker-src`; nested workers (e.g. future WASM/tooling) then fall back to
+ * `default-src` and can fail closed inside the Electron iframe. Add a conservative worker policy when absent.
+ */
+function ensureWorkerSrcForControlUiEmbed(csp: string): string {
+  if (/\bworker-src\b/i.test(csp)) {
+    return csp
+  }
+  const trimmed = csp.trim()
+  const sep = trimmed.endsWith(';') || trimmed === '' ? ' ' : '; '
+  return `${trimmed}${sep}worker-src 'self' blob:`
+}
+
 function polishGatewayCspForDesktopEmbed(csp: string): string {
-  return mitigateStrictGatewayDefaultSrc(relaxGatewayFrameAncestors(csp))
+  return ensureWorkerSrcForControlUiEmbed(mitigateStrictGatewayDefaultSrc(relaxGatewayFrameAncestors(csp)))
 }
 
 export function patchGatewayResponseHeaders(
