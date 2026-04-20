@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import net from 'node:net'
@@ -8,6 +8,11 @@ import { DEFAULT_GATEWAY_PORT } from '../../shared/constants.js'
 import { getBundledNodePath, getBundledOpenClawDir, getBundledOpenClawPath, getUserDataDir } from '../utils/paths.js'
 import { OPENCLAW_CONFIG_FILE } from '../../shared/constants.js'
 import { logInfo, logWarn } from '../utils/logger.js'
+import {
+  discoverEnterpriseRuntimeLaunch,
+  formatEnterpriseRuntimeStatus,
+  type EnterpriseRuntimeLaunchStatus,
+} from '../utils/enterprise-runtime.js'
 import { readOpenClawConfig } from '../config/index.js'
 
 export interface GatewayLaunchOptions {
@@ -29,6 +34,7 @@ export interface GatewayLaunchSpec {
   args: string[]
   cwd: string
   env: NodeJS.ProcessEnv
+  enterpriseRuntime?: EnterpriseRuntimeLaunchStatus
 }
 
 export interface GatewayProcessManagerOptions {
@@ -100,6 +106,46 @@ function withNodeInPath(env: NodeJS.ProcessEnv, nodePath: string): NodeJS.Proces
   }
 }
 
+function sendUnixSignalToProcessTree(pid: number, signal: NodeJS.Signals): boolean {
+  try {
+    process.kill(-pid, signal)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function listUnixChildProcessIds(pid: number): number[] {
+  const result = spawnSync('pgrep', ['-P', String(pid)], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+  if (result.status !== 0 && result.status !== 1) {
+    return []
+  }
+  return (result.stdout ?? '')
+    .split(/\r?\n/)
+    .map((line) => Number.parseInt(line.trim(), 10))
+    .filter((value) => Number.isFinite(value) && value > 0)
+}
+
+function sendUnixSignalRecursively(pid: number, signal: NodeJS.Signals, visited = new Set<number>()): void {
+  if (!Number.isFinite(pid) || pid <= 0 || visited.has(pid)) {
+    return
+  }
+  visited.add(pid)
+
+  for (const childPid of listUnixChildProcessIds(pid)) {
+    sendUnixSignalRecursively(childPid, signal, visited)
+  }
+
+  try {
+    process.kill(pid, signal)
+  } catch {
+    // no-op: process may already be gone
+  }
+}
+
 function hasConfiguredMinimaxProfile(config?: OpenClawConfig): boolean {
   const profiles = config?.auth?.profiles
   if (!profiles || typeof profiles !== 'object') return false
@@ -148,7 +194,12 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}, conf
   const nodePath = getBundledNodePath()
   const openclawPath = getBundledOpenClawPath()
 
-  const args: string[] = [openclawPath, 'gateway', 'run', '--allow-unconfigured', '--bind', bind, '--port', String(port)]
+  const enterpriseRuntime = discoverEnterpriseRuntimeLaunch({ bundledOpenClawPath: openclawPath })
+  const args: string[] = []
+  if (enterpriseRuntime.status === 'active') {
+    args.push('-r', enterpriseRuntime.decryptLoaderPath as string, '--import', enterpriseRuntime.esmBootstrapPath as string)
+  }
+  args.push(openclawPath, 'gateway', 'run', '--allow-unconfigured', '--bind', bind, '--port', String(port))
   if (options.token?.trim()) {
     args.push('--token', options.token.trim(), '--auth', 'token')
   }
@@ -169,11 +220,13 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}, conf
     cwd: getBundledOpenClawDir(),
     env: {
       ...applyOpenClawNoProxyBypass(envWithoutMinimaxOverride),
+      ...(enterpriseRuntime.status === 'active' ? enterpriseRuntime.env : {}),
       OPENCLAW_STATE_DIR: getUserDataDir(),
       OPENCLAW_CONFIG_PATH: path.join(getUserDataDir(), OPENCLAW_CONFIG_FILE),
       OPENCLAW_AGENT_DIR: path.join(getUserDataDir(), 'agents', 'main', 'agent'),
       NODE_ENV: 'production',
     },
+    enterpriseRuntime,
   }
 }
 
@@ -335,6 +388,14 @@ export class GatewayProcessManager {
     }
 
     const launchSpec = createGatewayLaunchSpec(options, runtimeConfig)
+    if (launchSpec.enterpriseRuntime) {
+      const enterpriseStatusLog = formatEnterpriseRuntimeStatus(launchSpec.enterpriseRuntime)
+      if (launchSpec.enterpriseRuntime.status === 'active') {
+        logInfo(enterpriseStatusLog)
+      } else {
+        logWarn(enterpriseStatusLog)
+      }
+    }
     logInfo(`[gateway] spawn: ${launchSpec.command} ${launchSpec.args.join(' ')}`)
     this.statusValue = 'starting'
     this.notifyStatusChange()
@@ -344,6 +405,7 @@ export class GatewayProcessManager {
       env: launchSpec.env,
       windowsHide: true,
       stdio: 'pipe',
+      detached: process.platform !== 'win32',
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -384,7 +446,7 @@ export class GatewayProcessManager {
         this.stopHealthCheckLoop()
         this.statusValue = this.stopping ? 'stopped' : code === 0 ? 'stopped' : 'error'
         this.notifyStatusChange()
-    this.emitLog('stderr', `[gateway] exited (code=${String(code)}, signal=${String(signal)})`)
+        this.emitLog('stderr', `[gateway] exited (code=${String(code)}, signal=${String(signal)})`)
 
         if (!this.stopping && this.statusValue === 'error') {
           void this.tryAutoRestart('process-exit')
@@ -414,6 +476,21 @@ export class GatewayProcessManager {
     this.statusValue = 'stopped'
     this.notifyStatusChange()
 
+    await this.terminateChildProcess(child, timeoutMs)
+
+    // If the child is still alive after timeout, mark as error and clear `stopping`.
+    // This matches smoke tests and prevents UI from being stuck in `stopped` state.
+    const stillAlive = Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null)
+    this.stopping = false
+    if (stillAlive) {
+      this.statusValue = 'error'
+      this.notifyStatusChange()
+    }
+
+    return this.getStatus()
+  }
+
+  private async terminateChildProcess(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<void> {
     await new Promise<void>((resolve) => {
       let settled = false
 
@@ -426,34 +503,39 @@ export class GatewayProcessManager {
       child.once('exit', () => finish())
 
       try {
-        child.kill('SIGTERM')
+        if (process.platform !== 'win32' && typeof child.pid === 'number' && child.pid > 0) {
+          sendUnixSignalRecursively(child.pid, 'SIGTERM')
+        } else {
+          child.kill('SIGTERM')
+        }
       } catch {
         finish()
         return
       }
 
       setTimeout(() => {
-        if (!settled && !child.killed) {
+        if (settled) {
+          return
+        }
+
+        if (process.platform === 'win32' && typeof child.pid === 'number' && child.pid > 0) {
+          spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+            stdio: 'ignore',
+            windowsHide: true,
+          })
+        } else if (typeof child.pid === 'number' && child.pid > 0) {
+          sendUnixSignalRecursively(child.pid, 'SIGKILL')
+        } else {
           try {
             child.kill('SIGKILL')
           } catch {
             // no-op: process may already be gone
           }
         }
+
         finish()
       }, timeoutMs)
     })
-
-    // If the child is still alive after timeout, mark as error and clear `stopping`.
-    // This matches smoke tests and prevents UI from being stuck in `stopped` state.
-    const stillAlive = Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null)
-    this.stopping = false
-    if (stillAlive) {
-      this.statusValue = 'error'
-      this.notifyStatusChange()
-    }
-
-    return this.getStatus()
   }
 
   private async restartInternal(options: GatewayLaunchOptions = {}): Promise<GatewayStatus> {

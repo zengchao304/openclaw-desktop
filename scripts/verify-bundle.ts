@@ -9,6 +9,11 @@ import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { verifyControlUiBundle } from './lib/control-ui-verify.ts'
 import { getOpenClawFeishuSdkPackageJsonPath } from './ensure-openclaw-feishu-sdk.ts'
+import {
+  discoverEnterpriseRuntimeLaunch,
+  formatEnterpriseRuntimeStatus,
+  getDefaultEnterpriseRuntimeManifestPathForSupport,
+} from '../src/main/utils/enterprise-runtime.ts'
 
 const PROJECT_ROOT = process.cwd()
 const BUILD_DIR = join(PROJECT_ROOT, 'build')
@@ -150,6 +155,15 @@ async function main(): Promise<void> {
     )
   }
   console.log('  [verify] gateway run OK')
+
+  const enterpriseStatus = discoverEnterpriseRuntimeLaunch({ bundledOpenClawPath: openclawMjs })
+  if (enterpriseStatus.status === 'active') {
+    console.log(`  [verify] ${formatEnterpriseRuntimeStatus(enterpriseStatus)}`)
+  } else {
+    console.log(
+      `  [verify] ${formatEnterpriseRuntimeStatus(enterpriseStatus)} (default-manifest=${getDefaultEnterpriseRuntimeManifestPathForSupport()})`,
+    )
+  }
 
   console.log('  OK: build/ resources are complete\n')
 }

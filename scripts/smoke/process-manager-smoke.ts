@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { GatewayProcessManager } from '../../src/main/gateway/process-manager.ts'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { GatewayProcessManager, createGatewayLaunchSpec } from '../../src/main/gateway/process-manager.ts'
+
+const TEST_ENTERPRISE_ENV_KEY = 'OPENCLAW_ENTERPRISE_TEST_CASE'
 
 type ManagerInternals = GatewayProcessManager & {
   child: ChildProcessWithoutNullStreams | null
@@ -336,6 +341,94 @@ async function testHealthCheckRequiresConsecutiveFailuresBeforeRestart(): Promis
   assert.equal(manager.consecutiveHealthCheckFailures, 0, 'expected failure counter to reset after restart trigger')
 }
 
+function withEnterpriseManifest<T>(
+  manifest: Record<string, unknown>,
+  run: (manifestPath: string, rootDir: string) => T,
+): T {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openclaw-enterprise-smoke-'))
+  const supportDir = path.join(rootDir, 'support')
+  fs.mkdirSync(supportDir, { recursive: true })
+  const manifestPath = path.join(supportDir, 'install-manifest.json')
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+
+  const previousManifest = process.env.OPENCLAW_ENTERPRISE_INSTALL_MANIFEST
+  process.env.OPENCLAW_ENTERPRISE_INSTALL_MANIFEST = manifestPath
+  try {
+    return run(manifestPath, rootDir)
+  } finally {
+    if (typeof previousManifest === 'string') {
+      process.env.OPENCLAW_ENTERPRISE_INSTALL_MANIFEST = previousManifest
+    } else {
+      delete process.env.OPENCLAW_ENTERPRISE_INSTALL_MANIFEST
+    }
+    fs.rmSync(rootDir, { recursive: true, force: true })
+  }
+}
+
+function writeRuntimeAsset(filePath: string, content = '// smoke asset\n'): string {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, content, 'utf-8')
+  return filePath
+}
+
+async function testCreateGatewayLaunchSpecInjectsEnterpriseRuntime(): Promise<void> {
+  withEnterpriseManifest({}, (_manifestPath, rootDir) => {
+    const supportDir = path.join(rootDir, 'support')
+    const loaderPath = writeRuntimeAsset(path.join(supportDir, 'decrypt-loader.js'))
+    const bootstrapPath = writeRuntimeAsset(path.join(supportDir, 'openclaw-esm-run-hook.bootstrap.mjs'))
+    const wrapperPath = writeRuntimeAsset(path.join(supportDir, 'bridge-wrapper.mjs'))
+    const manifest = {
+      supportDir,
+      decryptLoaderPath: loaderPath,
+      esmBootstrapPath: bootstrapPath,
+      wrapperPath,
+      [TEST_ENTERPRISE_ENV_KEY]: 'active-smoke',
+    }
+    fs.writeFileSync(path.join(supportDir, 'install-manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8')
+
+    const spec = createGatewayLaunchSpec({ port: 19122 })
+    assert.equal(spec.enterpriseRuntime?.status, 'active', 'expected enterprise runtime to be active')
+    assert.equal(spec.args[0], '-r', 'expected launch args to inject decrypt loader first')
+    assert.equal(spec.args[1], loaderPath, 'expected launch args to reference manifest decrypt loader')
+    assert.equal(spec.args[2], '--import', 'expected launch args to include ESM bootstrap injection')
+    assert.equal(spec.args[3], bootstrapPath, 'expected launch args to reference manifest bootstrap')
+    assert.equal(spec.args[4].endsWith('openclaw.mjs'), true, 'expected OpenClaw entry to follow runtime injections')
+    assert.equal(spec.env[TEST_ENTERPRISE_ENV_KEY], 'active-smoke', 'expected enterprise env contract to be merged')
+    assert.equal(spec.env.OPENCLAW_ENTERPRISE_WRAPPER_PATH, wrapperPath, 'expected wrapper path in child env')
+  })
+}
+
+async function testCreateGatewayLaunchSpecFallsBackWhenEnterpriseAssetsMissing(): Promise<void> {
+  const previousEnv = process.env[TEST_ENTERPRISE_ENV_KEY]
+  delete process.env[TEST_ENTERPRISE_ENV_KEY]
+  try {
+    withEnterpriseManifest({}, (_manifestPath, rootDir) => {
+      const supportDir = path.join(rootDir, 'support')
+      const manifest = {
+        supportDir,
+        decryptLoaderPath: path.join(supportDir, 'missing-loader.js'),
+        esmBootstrapPath: path.join(supportDir, 'missing-bootstrap.mjs'),
+        wrapperPath: path.join(supportDir, 'missing-wrapper.mjs'),
+        [TEST_ENTERPRISE_ENV_KEY]: 'inactive-smoke',
+      }
+      fs.writeFileSync(path.join(supportDir, 'install-manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8')
+
+      const spec = createGatewayLaunchSpec({ port: 19123 })
+      assert.equal(spec.enterpriseRuntime?.status, 'inactive', 'expected enterprise runtime to stay inactive')
+      assert.equal(spec.args[0].endsWith('openclaw.mjs'), true, 'expected fallback launch to start with openclaw.mjs')
+      assert.equal(spec.args.includes('-r'), false, 'expected fallback launch to omit -r')
+      assert.equal(spec.args.includes('--import'), false, 'expected fallback launch to omit --import')
+      assert.equal(spec.env[TEST_ENTERPRISE_ENV_KEY], undefined, 'expected enterprise env to not leak on fallback')
+    })
+  } finally {
+    if (typeof previousEnv === 'string') {
+      process.env[TEST_ENTERPRISE_ENV_KEY] = previousEnv
+    } else {
+      delete process.env[TEST_ENTERPRISE_ENV_KEY]
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const tests: Array<[name: string, fn: () => Promise<void>]> = [
     ['start() uses real process state, not child.killed', testStartTreatsKilledFlagAsNonAuthoritative],
@@ -346,6 +439,8 @@ async function main(): Promise<void> {
     ['stop() timeout reports error and clears stopping state', testStopFailureMarksErrorAndClearsStoppingFlag],
     ['restart() does not deadlock lifecycle queue', testRestartDoesNotDeadlockLifecycleQueue],
     ['health checks require consecutive failures before restart', testHealthCheckRequiresConsecutiveFailuresBeforeRestart],
+    ['createGatewayLaunchSpec() injects enterprise runtime when manifest is valid', testCreateGatewayLaunchSpecInjectsEnterpriseRuntime],
+    ['createGatewayLaunchSpec() falls back when enterprise assets are missing', testCreateGatewayLaunchSpecFallsBackWhenEnterpriseAssetsMissing],
   ]
 
   for (const [name, fn] of tests) {

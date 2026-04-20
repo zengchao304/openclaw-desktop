@@ -199,6 +199,18 @@ Usually no. After installing a newer build, launch the app once; it migrates `op
 When the bundled OpenClaw gateway inherits `HTTP(S)_PROXY`, some local proxies break TLS to Kuae's Coding Plan endpoint (`coding-plan-endpoint.kuaecloud.net`). Desktop merges `NO_PROXY` for both `.kuaecloud.net` domains so Kuae traffic goes direct while other providers still use your proxy. Set `OPENCLAW_SKIP_KUAE_NO_PROXY=1` to disable.
 </details>
 
+<details>
+<summary><strong>How do I diagnose Enterprise Shell runtime injection?</strong></summary>
+
+Desktop now checks the current-user Enterprise Shell manifest at `%LOCALAPPDATA%\OpenClawEnterpriseShell\support\install-manifest.json` before spawning the bundled gateway. If the manifest is valid, Desktop logs an `active` enterprise launch status and explicitly injects `-r <decrypt-loader>` plus `--import <esm-bootstrap>` into the gateway child.
+
+If Enterprise Shell is missing or broken, Desktop fails open and keeps the native launch path. Check `%USERPROFILE%\.openclaw\logs\shell.log` or run `pnpm run verify-bundle` to distinguish:
+
+- manifest not found
+- manifest found but invalid / assets missing
+- enterprise runtime launch active
+</details>
+
 ## Development
 
 ```bash
