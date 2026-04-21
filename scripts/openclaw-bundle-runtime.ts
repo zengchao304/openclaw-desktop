@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { access, readFile, readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import path, { join } from 'node:path'
 
 const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock', 'slack'] as const
 const OPENCLAW_STAGED_RUNTIME_DEPS_FOR_DESKTOP = ['feishu', 'telegram'] as const
@@ -22,8 +23,76 @@ function dependencySentinelPath(openclawRoot: string, depName: string): string {
   return join(openclawRoot, 'node_modules', ...depName.split('/'), 'package.json')
 }
 
-function npmCommand(): string {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm'
+function createNestedNpmInstallEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const nextEnv = { ...env }
+  delete nextEnv.npm_config_global
+  delete nextEnv.npm_config_location
+  delete nextEnv.npm_config_prefix
+  return nextEnv
+}
+
+function escapeForCmdExe(arg: string): string {
+  if (/[&|<>%\r\n]/.test(arg)) {
+    throw new Error(`unsafe Windows cmd.exe argument detected: ${JSON.stringify(arg)}`)
+  }
+  const escaped = arg.replace(/\^/g, '^^')
+  if (!escaped.includes(' ') && !escaped.includes('"')) {
+    return escaped
+  }
+  return `"${escaped.replace(/"/g, '""')}"`
+}
+
+function buildCmdExeCommandLine(command: string, args: string[]): string {
+  return [escapeForCmdExe(command), ...args.map(escapeForCmdExe)].join(' ')
+}
+
+function resolveNpmRunner(npmArgs: string[], env: NodeJS.ProcessEnv) {
+  if (process.platform !== 'win32') {
+    return {
+      command: 'npm',
+      args: npmArgs,
+      shell: false,
+      windowsVerbatimArguments: false,
+    } as const
+  }
+
+  const pathImpl = path.win32
+  const nodeDir = pathImpl.dirname(process.execPath)
+  const comSpec = env.ComSpec ?? 'cmd.exe'
+  const npmCliCandidates = [
+    pathImpl.resolve(nodeDir, '../lib/node_modules/npm/bin/npm-cli.js'),
+    pathImpl.resolve(nodeDir, 'node_modules/npm/bin/npm-cli.js'),
+  ]
+  const npmCliPath = npmCliCandidates.find((candidate) => existsSync(candidate))
+  if (npmCliPath) {
+    return {
+      command: process.execPath,
+      args: [npmCliPath, ...npmArgs],
+      shell: false,
+      windowsVerbatimArguments: false,
+    } as const
+  }
+
+  const npmExePath = pathImpl.resolve(nodeDir, 'npm.exe')
+  if (existsSync(npmExePath)) {
+    return {
+      command: npmExePath,
+      args: npmArgs,
+      shell: false,
+      windowsVerbatimArguments: false,
+    } as const
+  }
+
+  const npmCmdPath = existsSync(pathImpl.resolve(nodeDir, 'npm.cmd'))
+    ? pathImpl.resolve(nodeDir, 'npm.cmd')
+    : 'npm.cmd'
+
+  return {
+    command: comSpec,
+    args: ['/d', '/s', '/c', buildCmdExeCommandLine(npmCmdPath, npmArgs)],
+    shell: false,
+    windowsVerbatimArguments: true,
+  } as const
 }
 
 export interface OpenClawBundledPluginRuntimeDependency {
@@ -131,20 +200,40 @@ export async function ensureOpenClawBundledPluginRuntimeDeps(openclawRoot: strin
   }
 
   const specs = missing.map((dep) => `${dep.name}@${dep.version}`)
+  const npmArgs = [
+    'install',
+    '--omit=dev',
+    '--no-save',
+    '--package-lock=false',
+    '--no-audit',
+    '--no-fund',
+    '--ignore-scripts',
+    ...specs,
+  ]
+  const nestedEnv = createNestedNpmInstallEnv({ ...process.env, NODE_ENV: '' })
+  const npmRunner = resolveNpmRunner(npmArgs, nestedEnv)
   console.log(`  [plugin-deps] npm install ${specs.join(', ')} (cwd=${openclawRoot})...`)
 
-  const result = spawnSync(
-    npmCommand(),
-    ['install', '--omit=dev', '--no-save', '--package-lock=false', '--no-audit', '--no-fund', ...specs],
-    {
-      cwd: openclawRoot,
-      stdio: 'inherit',
-      windowsHide: true,
-      env: { ...process.env, NODE_ENV: '' },
-    },
-  )
-  if (result.status !== 0) {
-    throw new Error(`[plugin-deps] npm install failed for ${specs.join(', ')}`)
+  const result = spawnSync(npmRunner.command, npmRunner.args, {
+    cwd: openclawRoot,
+    encoding: 'utf8',
+    stdio: 'pipe',
+    windowsHide: true,
+    shell: npmRunner.shell,
+    windowsVerbatimArguments: npmRunner.windowsVerbatimArguments,
+    env: nestedEnv,
+  })
+  if (result.status !== 0 || result.error) {
+    const details = [
+      result.error?.message,
+      result.stderr?.trim(),
+      result.stdout?.trim(),
+    ]
+      .filter(Boolean)
+      .join('\n')
+    throw new Error(
+      `[plugin-deps] npm install failed for ${specs.join(', ')}${details ? `\n${details}` : ''}`,
+    )
   }
 
   const unresolved = await findMissingOpenClawBundledPluginRuntimeDeps(openclawRoot)

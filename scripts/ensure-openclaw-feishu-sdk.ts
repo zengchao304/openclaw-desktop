@@ -50,11 +50,14 @@ export async function ensureOpenClawFeishuLarkSdk(openclawRoot: string): Promise
   console.log(`  [feishu-sdk] npm install ${pkgArg} (cwd=${openclawRoot})...`)
 
   // Use execSync (shell on Windows) so `npm` resolves to npm.cmd; execFileSync('npm') → ENOENT.
-  execSync(`npm install ${pkgArg} --no-save --no-audit --no-fund`, {
-    cwd: openclawRoot,
-    stdio: 'inherit',
-    env: { ...process.env, NODE_ENV: '' },
-  })
+  execSync(
+    `npm install ${pkgArg} --omit=dev --no-save --package-lock=false --no-audit --no-fund --ignore-scripts`,
+    {
+      cwd: openclawRoot,
+      stdio: 'inherit',
+      env: { ...process.env, NODE_ENV: '' },
+    },
+  )
 
   if (!(await fileExists(marker))) {
     throw new Error(`[feishu-sdk] install failed — missing ${marker}`)
