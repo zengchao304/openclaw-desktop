@@ -3,6 +3,7 @@ import { access, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock', 'slack'] as const
+const OPENCLAW_STAGED_RUNTIME_DEPS_FOR_DESKTOP = ['feishu', 'telegram'] as const
 
 async function fileExists(p: string): Promise<boolean> {
   try {
@@ -66,7 +67,25 @@ export async function discoverOpenClawBundledPluginRuntimeDeps(
       const pkg = await readJson<{
         dependencies?: Record<string, string>
         optionalDependencies?: Record<string, string>
+        openclaw?: {
+          bundle?: {
+            stageRuntimeDependencies?: boolean
+          }
+        }
       }>(packageJsonPath)
+      if (OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP.includes(pluginId as (typeof OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP)[number])) {
+        continue
+      }
+      if (pkg.openclaw?.bundle?.stageRuntimeDependencies !== true) {
+        continue
+      }
+      if (
+        !OPENCLAW_STAGED_RUNTIME_DEPS_FOR_DESKTOP.includes(
+          pluginId as (typeof OPENCLAW_STAGED_RUNTIME_DEPS_FOR_DESKTOP)[number],
+        )
+      ) {
+        continue
+      }
       const runtimeDeps = {
         ...(pkg.dependencies ?? {}),
         ...(pkg.optionalDependencies ?? {}),
