@@ -112,10 +112,15 @@ function formatNodeImportSpecifier(value: string): string {
   if (process.platform !== 'win32') {
     return value
   }
-  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value)) {
-    return value
+  const trimmed = value.trim()
+  const isWindowsAbsolutePath = /^[a-zA-Z]:[\\/]/.test(trimmed) || trimmed.startsWith('\\\\')
+  if (isWindowsAbsolutePath) {
+    return pathToFileURL(trimmed).href
   }
-  return pathToFileURL(value).href
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) {
+    return trimmed
+  }
+  return pathToFileURL(trimmed).href
 }
 
 function sendUnixSignalToProcessTree(pid: number, signal: NodeJS.Signals): boolean {

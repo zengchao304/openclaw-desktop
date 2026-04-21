@@ -427,6 +427,11 @@ async function testCreateGatewayLaunchSpecInjectsEnterpriseRuntimeFromInstallerM
         true,
         'expected launch args to use file:// URL for --import on Windows',
       )
+      assert.equal(
+        /^[A-Za-z]:[\\/]/.test(spec.args[3]),
+        false,
+        'expected --import argument to not be a raw Windows path on Windows',
+      )
     } else {
       assert.equal(spec.args[3], bootstrapPath, 'expected launch args to reference esmHookBootstrapPath from installer manifest')
     }
