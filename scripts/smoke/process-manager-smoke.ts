@@ -421,7 +421,15 @@ async function testCreateGatewayLaunchSpecInjectsEnterpriseRuntimeFromInstallerM
     assert.equal(spec.args[0], '-r', 'expected launch args to inject decrypt loader first for installer keys')
     assert.equal(spec.args[1], loaderPath, 'expected launch args to reference loaderPath from installer manifest')
     assert.equal(spec.args[2], '--import', 'expected launch args to include ESM bootstrap injection for installer keys')
-    assert.equal(spec.args[3], bootstrapPath, 'expected launch args to reference esmHookBootstrapPath from installer manifest')
+    if (process.platform === 'win32') {
+      assert.equal(
+        spec.args[3].startsWith('file:///'),
+        true,
+        'expected launch args to use file:// URL for --import on Windows',
+      )
+    } else {
+      assert.equal(spec.args[3], bootstrapPath, 'expected launch args to reference esmHookBootstrapPath from installer manifest')
+    }
     assert.equal(spec.env[TEST_ENTERPRISE_ENV_KEY], 'active-installer-smoke', 'expected enterprise env contract to be merged')
     assert.equal(spec.env.OPENCLAW_ENTERPRISE_WRAPPER_PATH, wrapperPath, 'expected wrapper path in child env for installer keys')
   })

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import net from 'node:net'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { GatewayStatus, GatewayStatusValue, OpenClawConfig } from '../../shared/types.js'
 import { DEFAULT_GATEWAY_PORT } from '../../shared/constants.js'
 import { getBundledNodePath, getBundledOpenClawDir, getBundledOpenClawPath, getUserDataDir } from '../utils/paths.js'
@@ -106,6 +107,17 @@ function withNodeInPath(env: NodeJS.ProcessEnv, nodePath: string): NodeJS.Proces
   }
 }
 
+function formatNodeImportSpecifier(value: string): string {
+  // Node on Windows rejects absolute drive-letter paths for --import (expects file:// URL).
+  if (process.platform !== 'win32') {
+    return value
+  }
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value)) {
+    return value
+  }
+  return pathToFileURL(value).href
+}
+
 function sendUnixSignalToProcessTree(pid: number, signal: NodeJS.Signals): boolean {
   try {
     process.kill(-pid, signal)
@@ -197,7 +209,12 @@ export function createGatewayLaunchSpec(options: GatewayLaunchOptions = {}, conf
   const enterpriseRuntime = discoverEnterpriseRuntimeLaunch({ bundledOpenClawPath: openclawPath })
   const args: string[] = []
   if (enterpriseRuntime.status === 'active') {
-    args.push('-r', enterpriseRuntime.decryptLoaderPath as string, '--import', enterpriseRuntime.esmBootstrapPath as string)
+    args.push(
+      '-r',
+      enterpriseRuntime.decryptLoaderPath as string,
+      '--import',
+      formatNodeImportSpecifier(enterpriseRuntime.esmBootstrapPath as string),
+    )
   }
   args.push(openclawPath, 'gateway', 'run', '--allow-unconfigured', '--bind', bind, '--port', String(port))
   if (options.token?.trim()) {
