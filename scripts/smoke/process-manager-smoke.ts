@@ -398,6 +398,35 @@ async function testCreateGatewayLaunchSpecInjectsEnterpriseRuntime(): Promise<vo
   })
 }
 
+async function testCreateGatewayLaunchSpecInjectsEnterpriseRuntimeFromInstallerManifestKeys(): Promise<void> {
+  withEnterpriseManifest({}, (_manifestPath, rootDir) => {
+    const supportDir = path.join(rootDir, 'support')
+    const runtimeLoaderDir = path.join(rootDir, 'runtime-loader')
+    const workspaceDir = path.join(rootDir, 'workspace')
+    const loaderPath = writeRuntimeAsset(path.join(runtimeLoaderDir, 'decrypt-loader.js'))
+    const bootstrapPath = writeRuntimeAsset(path.join(runtimeLoaderDir, 'openclaw-esm-run-hook.bootstrap.mjs'))
+    const wrapperPath = writeRuntimeAsset(path.join(workspaceDir, 'skills', 'hanxu-technology', 'SKILL.md'))
+    const manifest = {
+      supportDir,
+      runtimeLoaderDir,
+      loaderPath,
+      esmHookBootstrapPath: bootstrapPath,
+      wrapperPath,
+      [TEST_ENTERPRISE_ENV_KEY]: 'active-installer-smoke',
+    }
+    fs.writeFileSync(path.join(supportDir, 'install-manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8')
+
+    const spec = createGatewayLaunchSpec({ port: 19124 })
+    assert.equal(spec.enterpriseRuntime?.status, 'active', 'expected enterprise runtime to be active for installer keys')
+    assert.equal(spec.args[0], '-r', 'expected launch args to inject decrypt loader first for installer keys')
+    assert.equal(spec.args[1], loaderPath, 'expected launch args to reference loaderPath from installer manifest')
+    assert.equal(spec.args[2], '--import', 'expected launch args to include ESM bootstrap injection for installer keys')
+    assert.equal(spec.args[3], bootstrapPath, 'expected launch args to reference esmHookBootstrapPath from installer manifest')
+    assert.equal(spec.env[TEST_ENTERPRISE_ENV_KEY], 'active-installer-smoke', 'expected enterprise env contract to be merged')
+    assert.equal(spec.env.OPENCLAW_ENTERPRISE_WRAPPER_PATH, wrapperPath, 'expected wrapper path in child env for installer keys')
+  })
+}
+
 async function testCreateGatewayLaunchSpecFallsBackWhenEnterpriseAssetsMissing(): Promise<void> {
   const previousEnv = process.env[TEST_ENTERPRISE_ENV_KEY]
   delete process.env[TEST_ENTERPRISE_ENV_KEY]
@@ -440,6 +469,10 @@ async function main(): Promise<void> {
     ['restart() does not deadlock lifecycle queue', testRestartDoesNotDeadlockLifecycleQueue],
     ['health checks require consecutive failures before restart', testHealthCheckRequiresConsecutiveFailuresBeforeRestart],
     ['createGatewayLaunchSpec() injects enterprise runtime when manifest is valid', testCreateGatewayLaunchSpecInjectsEnterpriseRuntime],
+    [
+      'createGatewayLaunchSpec() injects enterprise runtime with installer manifest keys',
+      testCreateGatewayLaunchSpecInjectsEnterpriseRuntimeFromInstallerManifestKeys,
+    ],
     ['createGatewayLaunchSpec() falls back when enterprise assets are missing', testCreateGatewayLaunchSpecFallsBackWhenEnterpriseAssetsMissing],
   ]
 

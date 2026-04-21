@@ -238,7 +238,7 @@ export function discoverEnterpriseRuntimeLaunch(
     manifest,
     manifestPath,
     enterpriseEnv,
-    ['decryptLoaderPath', 'decryptLoader', 'nodeDecryptLoaderPath', 'runtimeDecryptLoaderPath'],
+    ['decryptLoaderPath', 'decryptLoader', 'nodeDecryptLoaderPath', 'runtimeDecryptLoaderPath', 'loaderPath'],
     ['OPENCLAW_ENTERPRISE_DECRYPT_LOADER', 'OPENCLAW_ENTERPRISE_DECRYPT_LOADER_PATH'],
   )
   const esmBootstrapPath = resolvePathCandidate(
