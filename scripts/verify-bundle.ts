@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { verifyControlUiBundle } from './lib/control-ui-verify.ts'
 import { getOpenClawFeishuSdkPackageJsonPath } from './ensure-openclaw-feishu-sdk.ts'
+import { findMissingOpenClawBundledPluginRuntimeDeps } from './openclaw-bundle-runtime.ts'
 import {
   discoverEnterpriseRuntimeLaunch,
   formatEnterpriseRuntimeStatus,
@@ -76,6 +77,16 @@ async function main(): Promise<void> {
     )
   }
   console.log('  [ok] @larksuiteoapi/node-sdk (Feishu/Lark)')
+
+  const missingPluginRuntimeDeps = await findMissingOpenClawBundledPluginRuntimeDeps(OPENCLAW_DIR)
+  if (missingPluginRuntimeDeps.length > 0) {
+    throw new Error(
+      'build/openclaw missing bundled extension runtime deps: ' +
+        missingPluginRuntimeDeps.map((dep) => `${dep.name}@${dep.version} (plugins=${dep.pluginIds.join(',')})`).join(', ') +
+        '. Run "pnpm run download-openclaw" or "pnpm run prepare-bundle" to restore them.',
+    )
+  }
+  console.log('  [ok] bundled extension runtime deps')
 
   const missing = await validateOpenclawDist(OPENCLAW_DIR)
   if (missing.length > 0) {

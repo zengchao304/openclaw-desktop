@@ -13,6 +13,10 @@ import {
   ensureOpenClawFeishuLarkSdk,
   getOpenClawFeishuSdkPackageJsonPath,
 } from './ensure-openclaw-feishu-sdk.ts'
+import {
+  ensureOpenClawBundledPluginRuntimeDeps,
+  stripOpenClawExtensionsWithoutDesktopDeps,
+} from './openclaw-bundle-runtime.ts'
 
 const PROJECT_ROOT = process.cwd()
 const BUILD_DIR = join(PROJECT_ROOT, 'build')
@@ -150,27 +154,6 @@ async function openclawDestHasStubPackageJson(destOpenclaw: string): Promise<boo
   }
 }
 
-/**
- * Upstream ships some `dist/extensions/*` plugins whose runtime deps are not in the published npm
- * tarball (e.g. `@aws-sdk/client-bedrock`). Desktop does not bundle those heavy SDKs — remove known
- * offenders after copy. Feishu/Lark is kept: `@larksuiteoapi/node-sdk` is installed via
- * {@link ensureOpenClawFeishuLarkSdk}.
- */
-const OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP = ['amazon-bedrock', 'slack'] as const
-
-async function stripOpenClawExtensionsWithoutDesktopDeps(openclawRoot: string): Promise<void> {
-  const extRoot = join(openclawRoot, 'dist', 'extensions')
-  if (!(await fileExists(extRoot))) return
-  for (const name of OPENCLAW_EXTENSIONS_STRIP_FOR_DESKTOP) {
-    const dir = join(extRoot, name)
-    if (!(await fileExists(dir))) continue
-    await rm(dir, { recursive: true, force: true })
-    console.log(
-      `  [strip] dist/extensions/${name}: removed (optional npm deps not in desktop bundle; avoids gateway load warnings)`,
-    )
-  }
-}
-
 async function validateOpenClawDist(rootDir: string): Promise<string[]> {
   const entryPath = join(rootDir, 'dist', 'entry.js')
   const entryAlt = join(rootDir, 'dist', 'entry.mjs')
@@ -221,6 +204,7 @@ async function main(): Promise<void> {
   console.log('  [ok] build/openclaw/node_modules found')
 
   await ensureOpenClawFeishuLarkSdk(SRC_OPENCLAW)
+  await ensureOpenClawBundledPluginRuntimeDeps(SRC_OPENCLAW)
   await patchOpenClawFeishuRegisterOnce(SRC_OPENCLAW)
 
   // --- Ensure resources directory exists ---
@@ -271,6 +255,7 @@ async function main(): Promise<void> {
   await patchOpenClawFeishuRegisterOnce(DEST_OPENCLAW)
 
   await ensureOpenClawFeishuLarkSdk(DEST_OPENCLAW)
+  await ensureOpenClawBundledPluginRuntimeDeps(DEST_OPENCLAW)
 
   await stripOpenClawExtensionsWithoutDesktopDeps(DEST_OPENCLAW)
 
