@@ -199,7 +199,11 @@ export async function ensureOpenClawBundledPluginRuntimeDeps(openclawRoot: strin
     return
   }
 
-  const specs = missing.map((dep) => `${dep.name}@${dep.version}`)
+  // `npm install --no-save` treats these transient packages as the desired root set.
+  // Installing only the currently-missing subset can prune previously-staged deps on
+  // re-runs, so reconcile the complete staged desktop runtime dependency set at once.
+  const runtimeDeps = await discoverOpenClawBundledPluginRuntimeDeps(openclawRoot)
+  const specs = runtimeDeps.map((dep) => `${dep.name}@${dep.version}`)
   const npmArgs = [
     'install',
     '--omit=dev',
