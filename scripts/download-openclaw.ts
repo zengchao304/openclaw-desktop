@@ -23,7 +23,6 @@ import {
 } from './ensure-openclaw-control-ui.ts'
 import { patchOpenClawFeishuRegisterOnce } from './patch-openclaw-feishu-register-once.ts'
 import { patchOpenClawStripSlackChannel } from './patch-openclaw-strip-slack-channel.ts'
-import { ensureOpenClawFeishuLarkSdk } from './ensure-openclaw-feishu-sdk.ts'
 import {
   ensureOpenClawBundledPluginRuntimeDeps,
   stripOpenClawExtensionsWithoutDesktopDeps,
@@ -48,7 +47,6 @@ function skipControlUiBuild(): boolean {
 const CONTROL_UI_DIST = join(OPENCLAW_DIR, 'dist', 'control-ui')
 
 async function finalizeDesktopOpenClawBundle(openclawDir: string): Promise<void> {
-  await ensureOpenClawFeishuLarkSdk(openclawDir)
   await ensureOpenClawBundledPluginRuntimeDeps(openclawDir)
   await stripOpenClawExtensionsWithoutDesktopDeps(openclawDir)
   await patchOpenClawFeishuRegisterOnce(openclawDir)
@@ -325,8 +323,6 @@ async function main(): Promise<void> {
       recursive: true,
     })
   }
-
-  await ensureOpenClawFeishuLarkSdk(OPENCLAW_DIR)
 
   // Version marker for idempotent re-runs
   await writeFile(markerPath, actualVersion + '\n', 'utf8')

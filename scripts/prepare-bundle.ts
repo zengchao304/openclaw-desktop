@@ -10,7 +10,6 @@ import { execSync } from 'node:child_process'
 import { patchOpenClawFeishuRegisterOnce } from './patch-openclaw-feishu-register-once.ts'
 import { patchOpenClawStripSlackChannel } from './patch-openclaw-strip-slack-channel.ts'
 import {
-  ensureOpenClawFeishuLarkSdk,
   getOpenClawFeishuSdkPackageJsonPath,
 } from './ensure-openclaw-feishu-sdk.ts'
 import {
@@ -203,7 +202,6 @@ async function main(): Promise<void> {
   }
   console.log('  [ok] build/openclaw/node_modules found')
 
-  await ensureOpenClawFeishuLarkSdk(SRC_OPENCLAW)
   await ensureOpenClawBundledPluginRuntimeDeps(SRC_OPENCLAW)
   await patchOpenClawFeishuRegisterOnce(SRC_OPENCLAW)
 
@@ -254,7 +252,6 @@ async function main(): Promise<void> {
   // Re-apply on resources: copyDir may skip when version matches, leaving stale dist without the Feishu guard.
   await patchOpenClawFeishuRegisterOnce(DEST_OPENCLAW)
 
-  await ensureOpenClawFeishuLarkSdk(DEST_OPENCLAW)
   await ensureOpenClawBundledPluginRuntimeDeps(DEST_OPENCLAW)
 
   await stripOpenClawExtensionsWithoutDesktopDeps(DEST_OPENCLAW)
