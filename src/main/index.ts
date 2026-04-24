@@ -2,7 +2,7 @@ import { app, dialog, Menu, Notification, nativeImage, session, screen } from 'e
 import fs from 'node:fs'
 import path from 'node:path'
 import { IPC_GATEWAY_LOG, IPC_GATEWAY_STATUS_CHANGE, IPC_STREAM_GATEWAY_LOGS, IPC_UPDATE_AVAILABLE } from '../shared/ipc-channels.js'
-import { APP_NAME, DEFAULT_GATEWAY_PORT, OPENCLAW_CONFIG_FILE } from '../shared/constants.js'
+import { DEFAULT_GATEWAY_PORT, DISPLAY_APP_NAME, OPENCLAW_CONFIG_FILE } from '../shared/constants.js'
 import { getLogAggregator, runPrestartCheck } from './diagnostics/index.js'
 import {
   readOpenClawConfig,
@@ -69,7 +69,7 @@ const windowManager = new WindowManager({
 })
 
 const trayManager = new TrayManager({
-  appName: APP_NAME,
+  appName: DISPLAY_APP_NAME,
   resolveTrayLocale: () => resolveTrayLocale(readShellConfig),
   onOpenMainWindow: () => windowManager.showMainWindow(),
   onOpenSettings: () => windowManager.showShellRoute('#settings'),
@@ -402,7 +402,7 @@ app.whenReady().then(() => {
           })
           n.on('failed', (_e, err) => {
             logWarn(
-              `[Feishu pairing] native notification failed: ${err} (check OS notification settings for ${APP_NAME}).`,
+              `[Feishu pairing] native notification failed: ${err} (check OS notification settings for ${DISPLAY_APP_NAME}).`,
             )
           })
           n.show()

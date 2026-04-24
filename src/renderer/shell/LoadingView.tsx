@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 
 interface LoadingViewProps {
@@ -36,6 +37,7 @@ export function LoadingView({
   hintText,
   variant = 'fullscreen',
 }: LoadingViewProps) {
+  const { t } = useTranslation()
   const embedded = variant === 'embedded'
   return (
     <div
@@ -59,7 +61,7 @@ export function LoadingView({
             <span className="text-2xl font-bold text-primary-foreground tracking-tight">OC</span>
           )}
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">OpenClaw Desktop</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t('shell.loading.appName')}</h1>
       </div>
 
       {!timedOut && (

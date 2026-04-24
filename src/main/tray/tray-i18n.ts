@@ -171,12 +171,12 @@ export function getFeishuPairingNotificationStrings(locale: ShellLocale): Feishu
   switch (locale) {
     case 'zh-CN':
       return {
-        title: 'OpenClaw 桌面版',
+        title: '涵旭科技-奥影Claw专业剪辑版',
         bodyTemplate: '新的飞书 DM 待审批，配对码：{{code}}',
       }
     case 'zh-TW':
       return {
-        title: 'OpenClaw 桌面版',
+        title: '涵旭科技-奧影Claw專業剪輯版',
         bodyTemplate: '新的飛書 DM 待審批，配對碼：{{code}}',
       }
     case 'ja':
@@ -201,7 +201,7 @@ export function getFeishuPairingNotificationStrings(locale: ShellLocale): Feishu
       }
     default:
       return {
-        title: 'OpenClaw Desktop',
+        title: '涵旭科技-奥影Claw专业剪辑版',
         bodyTemplate: 'New Feishu DM pairing request, code: {{code}}',
       }
   }

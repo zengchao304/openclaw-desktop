@@ -1,7 +1,7 @@
 /**
  * Supported UI locales for the desktop shell (renderer i18n + persisted ShellConfig.locale).
  */
-import { APP_NAME } from './constants.js'
+import { APP_NAME, DISPLAY_APP_NAME } from './constants.js'
 
 export const SHELL_SUPPORTED_LOCALES = ['en', 'zh-CN', 'zh-TW', 'fr', 'ja', 'ko', 'es'] as const
 
@@ -27,7 +27,7 @@ export function normalizeToShellLocale(electronLocale: string): ShellLocale {
 /** Native window title before renderer paints (bootstrap / errors) */
 export function getLocalizedShellWindowTitle(locale: ShellLocale): string {
   if (locale === 'zh-CN' || locale === 'zh-TW') {
-    return '涵旭科技-奥影Claw专业剪辑版'
+    return DISPLAY_APP_NAME
   }
   return APP_NAME
 }

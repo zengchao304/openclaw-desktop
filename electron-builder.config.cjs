@@ -75,7 +75,7 @@ const fastInstallerMode = process.env.OPENCLAW_FAST_INSTALLER !== '0'
 
 module.exports = {
   appId: 'com.openclaw.desktop',
-  productName: 'OpenClaw Desktop',
+  productName: '涵旭科技-奥影Claw专业剪辑版',
   copyright: 'hanxutech@2026',
 
   publish: {
@@ -135,7 +135,7 @@ module.exports = {
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
     icon: iconIcoPath,
-    artifactName: 'OpenClaw-Setup-${version}.${ext}',
+    artifactName: '涵旭科技-奥影Claw专业剪辑版-${version}.${ext}',
     // true = rcedit embeds icon; false skips rcedit (no winCodeSign fetch) — icon missing
     // Without CSC_LINK only resource edit runs, not signing
     // SKIP_EXE_RESOURCE_EDIT=1 skips edit when mirrors are unreachable
@@ -165,7 +165,7 @@ module.exports = {
     installerSidebar: 'resources/installer/installer-sidebar.bmp',
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
-    shortcutName: 'OpenClaw Desktop',
+    shortcutName: '涵旭科技-奥影Claw专业剪辑版',
     runAfterFinish: true,
     deleteAppDataOnUninstall: false,
     // Repo must ship build/installer.nsh (.gitignore exception) — NSIS fails if missing

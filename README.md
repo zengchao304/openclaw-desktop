@@ -48,7 +48,7 @@ If you've been searching for *how to install OpenClaw on Windows*, *how to run O
 ## Quick Start
 
 1. Download the latest installer from [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest)
-2. Run the Windows setup (filename follows `package.json`, e.g. `OpenClaw-Setup-0.7.0+openclaw.2026.4.2.exe`)
+2. Run the Windows setup (filename follows `package.json`, e.g. `涵旭科技-奥影Claw专业剪辑版-0.7.0+openclaw.2026.4.2.exe`)
 3. Finish the setup wizard (provider → channel → gateway)
 4. Launch from Start Menu or Desktop shortcut
 
@@ -132,7 +132,7 @@ OpenClaw Desktop is a **community-maintained Windows distribution** for the Open
 | | |
 |---|---|
 | **Release tag** | `v0.7.0+openclaw.2026.4.2` (equals `v` + `package.json` `version`) |
-| **Installer** | `OpenClaw-Setup-0.7.0+openclaw.2026.4.2.exe` (see [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest) for exact asset) |
+| **Installer** | `涵旭科技-奥影Claw专业剪辑版-0.7.0+openclaw.2026.4.2.exe` (see [Releases](https://github.com/agentkernel/openclaw-desktop/releases/latest) for exact asset) |
 | **Platform** | Windows 10/11 x64 |
 | **Includes** | Electron shell, portable Node.js, bundled OpenClaw |
 | **Extras** | SHA-256 checksum, `latest.yml` for in-app updates |
@@ -161,7 +161,7 @@ If the pending list is empty but you have a pairing code, use the code-based app
 <details>
 <summary><strong>How do I install OpenClaw on Windows?</strong></summary>
 
-Download the latest `OpenClaw-Setup-*.exe` from the [latest release](https://github.com/agentkernel/openclaw-desktop/releases/latest) and run it. That's it — no `npm`, no system-wide Node.js, no terminal commands needed.
+Download the latest `涵旭科技-奥影Claw专业剪辑版-*.exe` from the [latest release](https://github.com/agentkernel/openclaw-desktop/releases/latest) and run it. That's it — no `npm`, no system-wide Node.js, no terminal commands needed.
 </details>
 
 <details>
@@ -228,7 +228,7 @@ pnpm type-check   # Type check
 pnpm build       # Build
 pnpm run package:prepare-deps   # download-node + download-openclaw (before installer)
 pnpm run prepare-bundle
-pnpm run package:win   # Output: dist/OpenClaw-Setup-<version>.exe
+pnpm run package:win   # Output: dist/涵旭科技-奥影Claw专业剪辑版-<version>.exe
 ```
 
 **Bundled OpenClaw:** Pinned in `package.json` (`openclawBundleVersion`). After `prepare-bundle`, see `bundledOpenClawVersion` in [`resources/bundle-manifest.json`](resources/bundle-manifest.json) (currently **2026.4.2** for desktop **v0.7.0**). Local checks: `pnpm run check-openclaw-versions` (omit `OPENCLAW_SKIP_NPM_LATEST_CHECK` to also compare against npm `latest`).

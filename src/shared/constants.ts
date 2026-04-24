@@ -9,8 +9,11 @@ export const DEFAULT_GATEWAY_PORT = 18789
 /** OpenClaw state directory under %USERPROFILE% */
 export const OPENCLAW_USER_DIR = '.openclaw'
 
-/** Shell product name (under %APPDATA%) */
+/** Legacy shell config directory name (under %APPDATA%); keep stable for upgrades. */
 export const APP_NAME = 'OpenClaw Desktop'
+
+/** User-visible branded product name */
+export const DISPLAY_APP_NAME = '涵旭科技-奥影Claw专业剪辑版'
 
 /** Main OpenClaw config filename */
 export const OPENCLAW_CONFIG_FILE = 'openclaw.json'

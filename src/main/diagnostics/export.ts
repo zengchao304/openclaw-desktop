@@ -12,7 +12,7 @@ import { redactConfig, redactPath, redactLogMessage } from './redact.js'
 import type { PrestartCheckResult } from './prestart-check.js'
 import type { AppVersionInfo, DiagnosticReport } from '../../shared/types.js'
 import type { StructuredLog } from './log-aggregator.js'
-import { APP_NAME } from '../../shared/constants.js'
+import { APP_NAME, DISPLAY_APP_NAME } from '../../shared/constants.js'
 
 export interface DiagnosticsExportInput {
   versions: AppVersionInfo
@@ -52,7 +52,7 @@ export function exportDiagnostics(input: DiagnosticsExportInput): DiagnosticsExp
   }
 
   const meta: Record<string, unknown> = {
-    app: APP_NAME,
+    app: DISPLAY_APP_NAME,
     versions: input.versions,
     os: osInfo,
     prestartCheck: input.prestartCheck,
