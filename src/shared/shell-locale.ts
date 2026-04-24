@@ -27,7 +27,7 @@ export function normalizeToShellLocale(electronLocale: string): ShellLocale {
 /** Native window title before renderer paints (bootstrap / errors) */
 export function getLocalizedShellWindowTitle(locale: ShellLocale): string {
   if (locale === 'zh-CN' || locale === 'zh-TW') {
-    return 'OpenClaw 桌面版'
+    return '涵旭科技-奥影Claw专业剪辑版'
   }
   return APP_NAME
 }

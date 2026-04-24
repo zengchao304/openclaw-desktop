@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "OpenClaw 桌面版"
+    "name": "涵旭科技-奥影Claw专业剪辑版"
   },
   "wizard": {
-    "appName": "OpenClaw 桌面版",
+    "appName": "涵旭科技-奥影Claw专业剪辑版",
     "setupWizard": "设置向导",
     "steps": {
       "welcome": "欢迎",
@@ -19,8 +19,8 @@
       "next": "下一步"
     },
     "welcome": {
-      "title": "欢迎使用 OpenClaw 桌面版",
-      "subtitle": "OpenClaw 桌面版将 AI 助手打包为原生 Windows 桌面应用，集成了安装与配置流程。本向导将引导您完成初始配置。",
+      "title": "欢迎使用 涵旭科技-奥影Claw专业剪辑版",
+      "subtitle": "涵旭科技-奥影Claw专业剪辑版将 AI 助手打包为原生 Windows 桌面应用，集成了安装与配置流程。本向导将引导您完成初始配置。",
       "startHint": "点击下方「开始设置」以开始",
       "features": {
         "model": {
@@ -558,14 +558,14 @@
       }
     },
     "loading": {
-      "appName": "OpenClaw 桌面版",
+      "appName": "涵旭科技-奥影Claw专业剪辑版",
       "checkingConfig": "正在检查配置…",
       "timeout": "网关启动超时",
       "retry": "重试"
     },
     "error": {
-      "appName": "OpenClaw 桌面版",
-      "preloadTitle": "OpenClaw 桌面版",
+      "appName": "涵旭科技-奥影Claw专业剪辑版",
+      "preloadTitle": "涵旭科技-奥影Claw专业剪辑版",
       "preloadBody": "预加载脚本未能加载，应用内部通信不可用。请尝试重新安装或重新打包应用。",
       "preloadHint": "调试时请确认 `resources/app.asar(.unpacked)/out/preload/` 下存在 `index.cjs`。",
       "retry": "重试",

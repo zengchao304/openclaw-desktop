@@ -88,7 +88,7 @@ function App() {
         'feishu-settings': t('shell.feishu.title'),
       }
       const segment = panelTitles[route] ?? t('shell.dashboard.title')
-      syncNativeWindowTitle(`${segment} - ${t('app.name')}`)
+      syncNativeWindowTitle(segment === t('shell.dashboard.title') ? t('app.name') : `${segment} - ${t('app.name')}`)
     }
   }, [route, configExists, t, i18n.language])
 
