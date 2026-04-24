@@ -65,24 +65,17 @@ async function generateIconIco() {
   const sizes = [16, 32, 48, 256];
   const outPath = join(RESOURCES_DIR, 'icon.ico');
   const appleTouchIconPath = resolveAppleTouchIconPath();
+  if (existsSync(outPath) && process.env.REGENERATE_ICON !== '1') {
+    console.log('  ✓ icon.ico (keep existing file)');
+    return outPath;
+  }
   let pngBuffers;
   if (appleTouchIconPath) {
-    if (process.env.REGENERATE_ICON === '0') {
-      if (existsSync(outPath)) {
-        console.log('  ✓ icon.ico (keep existing file)');
-        return outPath;
-      }
-      console.warn('  ! icon.ico missing, REGENERATE_ICON=0 ignored');
-    }
     pngBuffers = await Promise.all(
       sizes.map(s => sharp(appleTouchIconPath).resize(s, s).png().toBuffer())
     );
     console.log('  ✓ icon.ico (from resources/apple-touch-icon.png)');
   } else {
-    if (existsSync(outPath) && process.env.REGENERATE_ICON !== '1') {
-      console.log('  ✓ icon.ico (keep existing file)');
-      return outPath;
-    }
     pngBuffers = await Promise.all(
       sizes.map(s =>
         sharp(Buffer.from(iconSvg(s)))

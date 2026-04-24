@@ -11,7 +11,6 @@ import { execSync } from 'node:child_process'
 const PROJECT_ROOT = process.cwd()
 const RESOURCES_OPENCLAW = join(PROJECT_ROOT, 'resources', 'openclaw')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
-const RESOURCES_ICON = join(PROJECT_ROOT, 'resources', 'icon.ico')
 const RESOURCES_TRAY_ICON = join(PROJECT_ROOT, 'resources', 'tray-icon.png')
 const ROOT_APPLE_ICON = join(PROJECT_ROOT, 'apple-touch-icon.png')
 const RESOURCES_SIDEBAR = join(PROJECT_ROOT, 'resources', 'installer', 'installer-sidebar.bmp')
@@ -32,10 +31,9 @@ function rmLongPath(dir: string): void {
 }
 
 function main(): void {
-  console.log('\nclean-resources: removing resources/openclaw and dist/\n')
+  console.log('\nclean-resources: removing packaged resources and generated assets\n')
   rmLongPath(RESOURCES_OPENCLAW)
   rmLongPath(DIST_DIR)
-  rmLongPath(RESOURCES_ICON)
   rmLongPath(RESOURCES_TRAY_ICON)
   rmLongPath(ROOT_APPLE_ICON)
   rmLongPath(RESOURCES_SIDEBAR)

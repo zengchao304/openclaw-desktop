@@ -29,7 +29,7 @@
     "smoke:csp": "tsx scripts/smoke/gateway-response-headers-smoke.ts",
     "smoke:gateway": "electron scripts/smoke/process-manager-electron-runner.cjs",
     "smoke": "npm run smoke:csp && npm run smoke:gateway",
-    "package:win": "pnpm run build && pnpm run clean-resources && pnpm run check-openclaw-versions -- --pre-pack && pnpm run verify-bundle && cross-env REGENERATE_ICON=1 pnpm run generate-resources && pnpm run prepare-bundle && pnpm run check-openclaw-versions && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_EXE_RESOURCE_EDIT=0 ELECTRON_BUILDER_BINARIES_MIRROR=https://registry.npmmirror.com/-/binary/electron-builder-binaries/ pnpm exec electron-builder --win --x64 --config electron-builder.config.cjs --publish never && pnpm run verify-packaged-win",
+    "package:win": "pnpm run build && pnpm run clean-resources && pnpm run check-openclaw-versions -- --pre-pack && pnpm run verify-bundle && pnpm run generate-resources && pnpm run prepare-bundle && pnpm run check-openclaw-versions && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_EXE_RESOURCE_EDIT=0 ELECTRON_BUILDER_BINARIES_MIRROR=https://registry.npmmirror.com/-/binary/electron-builder-binaries/ pnpm exec electron-builder --win --x64 --config electron-builder.config.cjs --publish never && pnpm run verify-packaged-win",
     "package:win:signed": "node scripts/package-win-signed.mjs",
     "generate-dev-cert": "node scripts/generate-dev-cert.mjs",
     "export-dev-cert-for-ci": "node scripts/export-dev-cert-for-ci.mjs"
@@ -97,7 +97,6 @@
     "ai-agent"
   ],
   "homepage": "https://github.com/agentkernel/openclaw-desktop",
-  "author": "wurongzhao@AgentKernel",
   "repository": {
     "type": "git",
     "url": "https://github.com/agentkernel/openclaw-desktop.git"
