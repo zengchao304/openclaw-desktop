@@ -76,6 +76,7 @@ const fastInstallerMode = process.env.OPENCLAW_FAST_INSTALLER !== '0'
 module.exports = {
   appId: 'com.openclaw.desktop',
   productName: '涵旭科技-奥影Claw专业剪辑版',
+  executableName: 'OpenClaw Desktop',
   copyright: 'hanxutech@2026',
 
   publish: {
